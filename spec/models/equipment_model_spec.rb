@@ -28,6 +28,7 @@ describe EquipmentModel, type: :model do
 
     it { is_expected.to validate_presence_of(:name) }
     it { is_expected.to validate_presence_of(:description) }
+    it { is_expected.to validate_presence_of(:ordering) }
 
     it 'requires an associated category' do
       @model.category = nil
@@ -127,6 +128,14 @@ describe EquipmentModel, type: :model do
     it 'allows nil values for renewal days before due' do
       @model.renewal_days_before_due = nil
       expect(@model.save).to be_truthy
+    end
+    it 'requires an integer value for ordering' do
+      @model.ordering = 2.3
+      expect(@model.save).to be_falsey
+    end
+    it 'requires an ordering greater than or equal to 1' do
+      @model.ordering = 0
+      expect(@model.save).to be_falsey
     end
   end
 

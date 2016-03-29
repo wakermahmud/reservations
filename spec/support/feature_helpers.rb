@@ -4,9 +4,11 @@ module FeatureHelpers
     @app_config = FactoryGirl.create(:app_config)
     @category = FactoryGirl.create(:category)
     @eq_model =
-      FactoryGirl.create(:equipment_model, category: @category)
+      FactoryGirl.create(:equipment_model, category: @category, ordering: 1)
     @eq_model2 =
-      FactoryGirl.create(:equipment_model, category: @category)
+      FactoryGirl.create(:equipment_model, category: @category, ordering: 2)
+    @eq_model3 =
+      FactoryGirl.create(:equipment_model, category: @category, ordering: 3)
     @eq_item = FactoryGirl.create(:equipment_item, equipment_model: @eq_model)
     @eq_item2 = FactoryGirl.create(:equipment_item, equipment_model: @eq_model2)
     @admin = FactoryGirl.create(:admin)

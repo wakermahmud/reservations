@@ -76,8 +76,14 @@ class EquipmentModelsController < ApplicationController
     @equipment_model = EquipmentModel.new(category: @category)
   end
 
+  def count_cat(cat_id)
+    EquipmentModel.where(category_id: cat_id, deleted_at: nil).count
+  end
+
   def create
     @equipment_model = EquipmentModel.new(equipment_model_params)
+    id = equipment_model_params['category_id']
+    @equipment_model.ordering = count_cat(id) + 1
     if @equipment_model.save
       flash[:notice] = 'Successfully created equipment model.'
       redirect_to @equipment_model
@@ -108,6 +114,30 @@ class EquipmentModelsController < ApplicationController
     end
   end
 
+  def up
+    id = @equipment_model.category_id
+    ord = @equipment_model.ordering
+    unless ord == 1
+      target = EquipmentModel.where(category_id: id, ordering: ord - 1).first
+      @equipment_model.update_attribute('ordering', ord - 1)
+      target.update_attribute('ordering', ord)
+    end
+    redirect_to request.referer
+  end
+
+  def down
+    id = @equipment_model.category_id
+    ord = @equipment_model.ordering
+    unless ord == count_cat(id)
+      target = EquipmentModel.where(category_id: id, ordering: ord + 1).first
+      @equipment_model.update_attribute('ordering', ord + 1)
+      @equipment_model.save
+      target.update_attribute('ordering', ord)
+      target.save
+    end
+    redirect_to request.referer
+  end
+
   def deactivate
     if params[:deactivation_cancelled]
       flash[:notice] = 'Deactivation cancelled.'
@@ -116,6 +146,12 @@ class EquipmentModelsController < ApplicationController
       Reservation.for_eq_model(@equipment_model.id).finalized.each do |r|
         r.archive(current_user, 'The equipment model was deactivated.')
           .save(validate: false)
+      end
+      id = @equipment_model.category_id
+      ms = EquipmentModel.where(category_id: id)
+      ms = ms.where('ordering > ?', @equipment_model.ordering)
+      ms.each do |m|
+        m.update_attribute('ordering', m.ordering - 1)
       end
       super
     else
