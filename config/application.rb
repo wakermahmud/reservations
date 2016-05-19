@@ -14,7 +14,8 @@ module Reservations
     # -- all .rb files in that directory are automatically loaded.
 
     # Custom directories with classes and modules you want to be autoloadable.
-    config.autoload_paths += %W(#{config.root}/lib/extras #{config.root}/lib/)
+    config.autoload_paths += %w(/lib/extras /lib/seed
+                                /lib/).map { |s| "#{config.root}#{s}" }
     config.watchable_dirs['lib'] = [:rb]
 
     # Activate observers that should always be running.

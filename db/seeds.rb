@@ -21,9 +21,10 @@
 # fast
 #   combines minimal and no_pics
 
-require 'ffaker'
 require 'ruby-progressbar'
-include ActiveSupport::Testing::TimeHelpers
+require 'ffaker'
+include ReservationGenerator
+include BlackoutGenerator
 
 # rubocop:disable Rails/Output
 
@@ -53,24 +54,6 @@ DELETED_MISSED_RES_EMAIL = File.read(File.join(DEFAULT_MSGS,
 
 # max number of attempts to build valid record before quitting
 MAX_TRIES = 50
-
-# ratio of old reservations to new
-PAST_CHANCE = 0.7
-
-# odds a checked out reservation is overdue
-OVERDUE_CHANCE = 0.3
-
-# odds a scheduled reservation has not been picked up
-MISSED_CHANCE = 0.2
-
-# odds that a checked out reservation has been returned
-RETURNED_CHANCE = 0.5
-
-# time in the future reservations could be scheduled
-FUTURE_RANGE = 3.months
-
-# time in the past reservations could be scheduled
-PAST_RANGE = 1.year
 
 IMAGES = Dir.glob(File.join(Rails.root, 'db', 'seed_images', '*'))
 
@@ -118,31 +101,6 @@ def prompt_password(user)
   rescue ActiveRecord::RecordInvalid => e
     puts e.to_s
     prompt_password(user)
-  end
-end
-
-def time_rand(from = 0.0, to = Time.zone.now, length = 0, options = {})
-  options[:passes_blackout_validations] = true
-
-  range = to.to_f - from.to_f
-
-  range = length.to_f if length > 0
-
-  random_time = Time.zone.at(from.to_f + rand * range)
-  blackouts = Blackout.all.map { |blk| blk.start_date..blk.end_date }
-
-  if options[:passes_blackout_validations] && !blackouts.blank?
-    while includes?(blackouts, random_time)
-      random_time = Time.zone.at(from.to_f + rand * range)
-    end
-  end
-
-  random_time
-end
-
-def includes?(array_of_ranges, elem)
-  array_of_ranges.each do |rng|
-    return rng.include?(elem)
   end
 end
 
@@ -234,101 +192,23 @@ def generate_checkout
   end
 end
 
+def generate_res
+  ReservationGenerator.generate_random
+end
+
 def generate_blackout
-  Blackout.create! do |blk|
-    blk.start_date = time_rand(Time.zone.now + 1.year)
-    # rubocop:disable Date
-    blk.end_date = time_rand(blk.start_date.to_time,
-                             blk.start_date.next_week.to_time)
-    # rubocop:enable Date
-    blk.notice = FFaker::HipsterIpsum.paragraph(2)
-    blk.created_by = User.first.id
-    blk.blackout_type = %w(soft hard).sample
-  end
+  BlackoutGenerator.generate
 end
-
-def mark_checked_in(res, checkout_length)
-  return unless res.checked_out
-  if rand < OVERDUE_CHANCE
-    res.overdue = true
-    res.status = 'checked_out'
-    res.checked_in = nil
-  else
-    res.status = 'returned'
-    res.checked_in = time_rand(res.checked_out, res.checked_out.next_week,
-                               checkout_length).to_datetime
-    res.checkin_handler_id = User.where('role = ? OR role = ? OR role = ?',
-                                        'checkout', 'admin', 'superuser')
-                                 .all.sample.id
-  end
-end
-
-def mark_checked_out(res)
-  if rand < MISSED_CHANCE
-    res.checked_out = nil
-    res.status = 'missed'
-  else
-    res.status = 'checked_out'
-    res.checked_out = res.start_date
-    res.equipment_item = res.equipment_model.equipment_items.all.sample
-    res.checkout_handler_id = User.where('role = ? OR role = ? OR role = ?',
-                                         'checkout', 'admin', 'superuser')
-                                  .all.sample.id
-  end
-end
-
-def throw_into_past(res)
-  factor = rand(1.day..PAST_RANGE)
-  res.start_date = res.start_date - factor
-  res.due_date = res.due_date - factor
-  travel_to(res.start_date) { res.save }
-  mark_checked_out res
-  return if res.status == 'missed' || rand < RETURNED_CHANCE
-
-  mark_checked_in(res, res.equipment_model.category.max_checkout_length)
-  travel_to(res.due_date) { res.save } unless res.overdue
-end
-
-# rubocop:disable AbcSize, MethodLength
-def generate_reservation
-  count = 0
-  while count < MAX_TRIES
-    res = Reservation.new
-    res.status = 'reserved'
-    res.reserver_id = User.all.sample.id
-    res.equipment_model = EquipmentModel.all.sample
-    res.start_date = time_rand(Time.zone.now,
-                               Time.zone.now + FUTURE_RANGE).to_date
-
-    checkout_length = res.equipment_model.category.max_checkout_length
-    res.due_date = time_rand(res.start_date.to_datetime,
-                             res.start_date.to_datetime.next_week,
-                             checkout_length.days).to_date
-    res.notes = FFaker::HipsterIpsum.paragraph(8)
-    res.notes_unsent = [true, false].sample
-
-    throw_into_past res if rand < PAST_CHANCE
-
-    try_again = false
-    begin
-      res.save!
-    rescue ActiveRecord::RecordInvalid
-      try_again = true
-    end
-    return unless try_again
-    count += 1
-  end
-end
-# rubocop:enable AbcSize
 
 def generate_objs(method, obj, n)
   return if n == 0
+  puts "\n"
   progress = ProgressBar.create(format: PROGRESS_STR, total: n)
   n.times do
-    progress.increment
     send(method)
+    progress.increment
   end
-  puts "\n#{n} #{obj.camelize} records successfully created!"
+  puts "#{n} #{obj.camelize} records successfully created!"
 end
 
 # START SCRIPT
@@ -446,7 +326,6 @@ end
 # ============================================================================
 
 unless EquipmentModel.count == 0
-
   n = MINIMAL ? 50 : ask_for_records('EquipmentItem')
   generate_objs(:generate_ei, 'equipment_item', n)
 
@@ -458,7 +337,6 @@ unless EquipmentModel.count == 0
 
   n = MINIMAL ? 3 : ask_for_records('CheckoutProcedure')
   generate_objs(:generate_checkout, 'checkout_procedure', n)
-
 end
 
 # Blackout Date generation
@@ -471,8 +349,13 @@ generate_objs(:generate_blackout, 'blackout', n)
 # ============================================================================
 
 unless EquipmentItem.count == 0
-  n = MINIMAL ? 10 : ask_for_records('Reservation')
-  generate_objs(:generate_reservation, 'reservation', n)
+  if MINIMAL
+    puts "\nGenerating reservations at each point in the lifecycle..."
+    ReservationGenerator.generate_all_types
+    puts "\nGenerating other random reservations..."
+  end
+  n = MINIMAL ? 5 : ask_for_records('Reservation')
+  generate_objs(:generate_res, 'reservation', n)
 end
 
 puts "\n***Successfully seeded all records! (#{Time.zone.now - t1}s)***\n\n"
