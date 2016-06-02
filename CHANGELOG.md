@@ -4,6 +4,7 @@
 
 ## v6.2.0 - 2016-07-04
 ### Fixed
+* Fixed intermittent asset failure in specs ([#1528](https://github.com/YaleSTC/reservations/issues/1528)).
 
 
 ### Added
