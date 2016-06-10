@@ -8,6 +8,7 @@
 
 
 ### Added
+* Configuration for Hound CI ([#1577](https://github.com/YaleSTC/reservations/issues/1577)).
 
 
 ### Changed
