@@ -30,6 +30,7 @@ class Ability
     cannot :appoint, :superuser
     cannot :access, :rails_admin
     cannot [:destroy, :update], User, role: 'superuser'
+    cannot :run, :jobs
   end
 
   def checkout

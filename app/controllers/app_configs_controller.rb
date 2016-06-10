@@ -35,6 +35,22 @@ class AppConfigsController < ApplicationController
     end
   end
 
+  def run_daily_tasks
+    if can? :run, :jobs
+      DailyTasksJob.perform_now
+      flash[:notice] = 'Daily tasks queued and running'
+    end
+    redirect_to :back
+  end
+
+  def run_hourly_tasks
+    if can? :run, :jobs
+      HourlyTasksJob.perform_now
+      flash[:notice] = 'Hourly tasks queued and running'
+    end
+    redirect_to :back
+  end
+
   private
 
   def app_config_params

@@ -21,6 +21,59 @@ describe Reservation, type: :model do
   # can't run if nil (?)
   #
 
+  describe 'deletable_missed' do
+    context 'when reservations are set to expire' do
+      it 'collects appropriate reservations' do
+        mock_app_config(res_exp_time: 2)
+        old = FactoryGirl.create(:missed_reservation,
+                                 start_date: Time.zone.today - 3.days,
+                                 due_date: Time.zone.today - 2.days)
+        FactoryGirl.create(:missed_reservation,
+                           start_date: Time.zone.today - 1.day,
+                           due_date: Time.zone.today)
+        expect(Reservation.deletable_missed).to eq([old])
+      end
+    end
+    context "when reservations don't expire" do
+      it 'returns none' do
+        mock_app_config(res_exp_time: '')
+        FactoryGirl.create(:missed_reservation,
+                           start_date: Time.zone.today - 3.days,
+                           due_date: Time.zone.today - 2.days)
+        FactoryGirl.create(:missed_reservation,
+                           start_date: Time.zone.today - 2.days,
+                           due_date: Time.zone.today - 1.day)
+        expect(Reservation.deletable_missed).to be_empty
+      end
+    end
+  end
+
+  describe 'missed_not_emailed' do
+    it 'collects the appropriate reservations' do
+      not_emailed = FactoryGirl.create(:missed_reservation)
+      FactoryGirl.create(:missed_reservation,
+                         flags: Reservation::FLAGS[:missed_email_sent])
+      expect(Reservation.missed_not_emailed).to eq([not_emailed])
+    end
+  end
+
+  describe 'newly_missed' do
+    it 'collects the appropriate reservations' do
+      FactoryGirl.create(:missed_reservation)
+      missed = FactoryGirl.create(:missed_reservation, status: 'reserved')
+      expect(Reservation.newly_missed).to eq([missed])
+    end
+  end
+
+  describe 'newly overdue' do
+    it 'collects the appropriate reservations' do
+      FactoryGirl.create(:overdue_reservation)
+      overdue = FactoryGirl.create(:overdue_reservation)
+      overdue.update_columns(overdue: false)
+      expect(Reservation.newly_overdue).to eq([overdue])
+    end
+  end
+
   describe '.number_for' do
     before(:each) do
       @source = FactoryGirl.build_pair(:valid_reservation)
@@ -55,6 +108,25 @@ describe Reservation, type: :model do
                                     date: @source.last.start_date + 1,
                                     overdue: false,
                                     equipment_model_id: 1)).to eq(1)
+    end
+  end
+
+  describe '.expire!' do
+    let!(:res) { FactoryGirl.create(:request) }
+
+    it 'updates the status' do
+      expect { res.expire! }.to change { res.status }
+        .from('requested').to('denied')
+    end
+
+    it 'flags as expired' do
+      expect { res.expire! }.to change { res.flagged?(:expired) }
+        .from(false).to(true)
+    end
+
+    it 'saves the result' do
+      expect(res).to receive(:save)
+      res.expire!
     end
   end
 

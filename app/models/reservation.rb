@@ -103,6 +103,25 @@ class Reservation < ActiveRecord::Base
       .select('reservations.*, equipment_models.category_id as category_id')
   }
 
+  # for status modifying jobs
+  def self.deletable_missed
+    return Reservation.none if AppConfig.check(:res_exp_time, '').blank?
+    threshold = Time.zone.today - AppConfig.get(:res_exp_time).days
+    Reservation.missed.where('start_date < ?', threshold)
+  end
+
+  def self.missed_not_emailed
+    Reservation.missed.not_flagged(:missed_email_sent)
+  end
+
+  def self.newly_missed
+    Reservation.reserved.past_date(:start_date)
+  end
+
+  def self.newly_overdue
+    Reservation.not_overdue.past_date(:due_date)
+  end
+
   ## Class methods ##
 
   def self.completed_procedures(procedures)
@@ -161,6 +180,12 @@ class Reservation < ActiveRecord::Base
 
   def unflag(flag)
     self.flags - FLAGS[flag]
+  end
+
+  def expire!
+    self.status = 'denied'
+    flag(:expired)
+    save
   end
 
   def human_status # rubocop:disable all
