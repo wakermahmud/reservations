@@ -8,7 +8,7 @@ ActionMailer::Base.smtp_settings = {
 }
 
 # optional server authentication
-if ENV['RES_SMTP_AUTH']
+if env?('RES_SMTP_AUTH')
   ActionMailer::Base.smtp_settings[:authentication] = :login
   ActionMailer::Base.smtp_settings[:user_name] =
     Rails.application.secrets.smtp_username
@@ -19,7 +19,7 @@ end
 # logging of automatically sent emails
 class MailObserver
   def self.delivered_email(message)
-    if ENV['LOG_EMAILS']
+    if env?('LOG_EMAILS')
       Rails.logger.info "Sent #{message.subject} to #{message.to}"
     end
   end

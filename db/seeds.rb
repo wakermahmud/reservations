@@ -153,11 +153,11 @@ def generate_user
     u.nickname = FFaker::Name.first_name
     u.phone = FFaker::PhoneNumber.short_phone_number
     u.email = FFaker::Internet.email
-    u.cas_login = FFaker::Internet.user_name if ENV['CAS_AUTH']
+    u.cas_login = FFaker::Internet.user_name if env?('CAS_AUTH')
     u.affiliation = 'YC ' + %w(BK BR CC DC ES JE MC PC SM SY TC TD).sample +
                     ' ' + rand(2012..2015).to_s
     u.role = %w(normal checkout).sample
-    u.username = ENV['CAS_AUTH'] ? u.cas_login : u.email
+    u.username = env?('CAS_AUTH') ? u.cas_login : u.email
   end
 end
 
@@ -355,7 +355,7 @@ if User.where('role = ?', 'superuser').empty?
   u.save
 
   if MINIMAL || SEMI
-    if ENV['CAS_AUTH']
+    if env?('CAS_AUTH')
       prompt_field(u, :cas_login)
       u.username = u.cas_login
     else
@@ -372,7 +372,7 @@ if User.where('role = ?', 'superuser').empty?
     prompt_field(u, :phone)
     prompt_field(u, :email)
     prompt_field(u, :affiliation)
-    if ENV['CAS_AUTH']
+    if env?('CAS_AUTH')
       prompt_field(u, :cas_login)
       u.username = u.cas_login
       u.save
@@ -476,6 +476,6 @@ unless EquipmentItem.count == 0
 end
 
 puts "\n***Successfully seeded all records! (#{Time.zone.now - t1}s)***\n\n"
-if !ENV['CAS_AUTH'] && MINIMAL && display_login_msg
+if !env?('CAS_AUTH') && MINIMAL && display_login_msg
   puts "You can log in using e-mail 'email@email.com' and password 'passw0rd'\n"
 end
