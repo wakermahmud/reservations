@@ -17,6 +17,7 @@ AllCops:
     - 'lib/**/*.erb'
     - 'script/**/*'
     - 'vendor/**/*'
+    - 'node_modules/**/*'
 # disable the documentation check at the start of classes / modules
 Documentation:
   Enabled: false
