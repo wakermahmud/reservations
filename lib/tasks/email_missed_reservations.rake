@@ -2,7 +2,7 @@ desc 'Send emails about missed reservations'
 task email_missed_reservations: :environment do
   # get all reservations that are approved and missed, send an email to
   # user to inform them
-  if AppConfig.first.send_notifications_for_deleted_missed_reservations
+  if AppConfig.check :send_notifications_for_deleted_missed_reservations
     missed_reservations = Reservation.missed.not_flagged(:missed_email_sent)
 
     Rails.logger.info "Found #{missed_reservations.size} missed reservations\

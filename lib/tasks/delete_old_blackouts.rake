@@ -6,8 +6,8 @@ task delete_old_blackouts: :environment do
 end
 
 def delete_old_blackouts
-  return if AppConfig.blank? || AppConfig.first.blackout_exp_time.blank?
-  time = AppConfig.first.blackout_exp_time
+  return if AppConfig.check(:blackout_exp_time, '').blank?
+  time = AppConfig.get :blackout_exp_time
   old_blackouts = Blackout.where('end_date < ?', Time.zone.today - time.day)
   old_blackouts.each do |b|
     Rails.logger.info "Deleting old blackout:\n #{b.inspect}"

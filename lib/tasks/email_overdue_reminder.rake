@@ -1,6 +1,6 @@
 desc 'Send email reminder about overdue checkins'
 task email_overdue_reminder: :environment do
-  if AppConfig.first.overdue_checkin_email_active?
+  if AppConfig.check :overdue_checkin_email_active?
     # get all reservations that ended before today and aren't already checked
     # in
     overdue_reservations = Reservation.overdue

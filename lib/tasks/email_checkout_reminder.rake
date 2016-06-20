@@ -1,6 +1,6 @@
 desc 'Send email reminder about upcoming checkout'
 task email_checkout_reminder: :environment do
-  if AppConfig.first.upcoming_checkout_email_active?
+  if AppConfig.check :upcoming_checkout_email_active?
     # get all reservations that start today
     upcoming_reservations = Reservation.upcoming
     Rails.logger.info "Found #{upcoming_reservations.size} reservations that \
