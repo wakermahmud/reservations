@@ -9,6 +9,7 @@
 
 ### Added
 * Configuration for Hound CI ([#1577](https://github.com/YaleSTC/reservations/issues/1577)).
+* Setting to allow requests to block availability ([#1521](https://github.com/YaleSTC/reservations/issues/1521)).
 
 
 ### Changed
