@@ -1,5 +1,5 @@
 module CategoryGenerator
-  def generate
+  def self.generate
     Category.create! do |c|
       category_name = FFaker::Product.brand
       category_names = Category.all.to_a.map!(&:name)

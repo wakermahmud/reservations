@@ -1,43 +1,43 @@
 module Generator
   require 'ffaker'
 
-  def reservation
+  def self.reservation
     ReservationGenerator.generate_random
   end
 
-  def all_reservation_types
+  def self.all_reservation_types
     ReservationGenerator.generate_all_types
   end
 
-  def blackout
+  def self.blackout
     BlackoutGenerator.generate
   end
 
-  def user
+  def self.user
     UserGenerator.generate
   end
 
-  def category
+  def self.category
     CategoryGenerator.generate
   end
 
-  def equipment_model
+  def self.equipment_model
     EquipmentModelGenerator.generate
   end
 
-  def equipment_item
+  def self.equipment_item
     EquipmentItemGenerator.generate
   end
 
-  def requirement
+  def self.requirement
     RequirementGenerator.generate
   end
 
-  def checkin_procedure
+  def self.checkin_procedure
     ProcedureGenerator.generate_checkin
   end
 
-  def checkout_procedure
+  def self.checkout_procedure
     ProcedureGenerator.generate_checkout
   end
 end

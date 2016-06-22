@@ -22,9 +22,6 @@
 #   combines minimal and no_pics
 
 require 'ruby-progressbar'
-require 'ffaker'
-include ReservationGenerator
-include BlackoutGenerator
 
 # rubocop:disable Rails/Output
 
@@ -104,111 +101,14 @@ def prompt_password(user)
   end
 end
 
-def generate_user
-  User.create do |u|
-    u.first_name = FFaker::Name.first_name
-    u.last_name = FFaker::Name.last_name
-    u.nickname = FFaker::Name.first_name
-    u.phone = FFaker::PhoneNumber.short_phone_number
-    u.email = FFaker::Internet.email
-    u.cas_login = FFaker::Internet.user_name if ENV['CAS_AUTH']
-    u.affiliation = 'YC ' + %w(BK BR CC DC ES JE MC PC SM SY TC TD).sample +
-                    ' ' + rand(2012..2015).to_s
-    u.role = %w(normal checkout).sample
-    u.username = ENV['CAS_AUTH'] ? u.cas_login : u.email
-  end
-end
-
-def generate_category
-  Category.create! do |c|
-    category_name = FFaker::Product.brand
-    category_names = Category.all.to_a.map!(&:name)
-
-    # Verify uniqueness of category name
-    while category_names.include?(category_name)
-      category_name = FFaker::Product.brand
-    end
-
-    c.name = category_name
-
-    c.max_per_user = rand(1..40)
-    c.max_checkout_length = rand(1..40)
-    c.sort_order = rand(100)
-    c.max_renewal_times = rand(0..40)
-    c.max_renewal_length = rand(0..40)
-    c.renewal_days_before_due = rand(0..9001)
-  end
-end
-
-def generate_em
-  EquipmentModel.create! do |em|
-    em.name = FFaker::Product.product + ' ' + rand(1..9001).to_s
-    em.description = FFaker::HipsterIpsum.paragraph(16)
-    em.late_fee = rand(50.00..1000.00).round(2).to_d
-    em.replacement_fee = rand(50.00..1000.00).round(2).to_d
-    em.category = Category.all.sample
-    em.max_per_user = rand(1..em.category.max_per_user)
-    em.active = true
-    em.max_renewal_times = rand(0..40)
-    em.max_renewal_length = rand(0..40)
-    em.renewal_days_before_due = rand(0..9001)
-    em.photo = File.open(IMAGES.sample) unless NO_PICS
-    em.associated_equipment_models = EquipmentModel.all.sample(6)
-  end
-end
-
-def generate_ei
-  EquipmentItem.create! do |ei|
-    ei.name = "Number #{(0...3).map { 65.+(rand(25)).chr }.join}" +
-              rand(1..9001).to_s
-    ei.serial = (0...8).map { 65.+(rand(25)).chr }.join
-    ei.active = true
-    ei.equipment_model_id = EquipmentModel.all.sample.id
-    ei.notes = ''
-  end
-end
-
-def generate_req
-  Requirement.create! do |req|
-    req.equipment_models = EquipmentModel.all.sample(rand(1..3))
-    req.contact_name = FFaker::Name.name
-    req.contact_info = FFaker::PhoneNumber.short_phone_number
-    req.notes = FFaker::HipsterIpsum.paragraph(4)
-    req.description = FFaker::HipsterIpsum.sentence
-  end
-end
-
-def generate_checkin
-  CheckinProcedure.create! do |chi|
-    chi.step = FFaker::HipsterIpsum.sentence
-    chi.equipment_model_id = EquipmentModel.all.sample.id
-  end
-end
-
-def generate_checkout
-  CheckoutProcedure.create! do |chi|
-    chi.step = FFaker::HipsterIpsum.sentence
-    chi.equipment_model_id = EquipmentModel.all.sample.id
-  end
-end
-
-def generate_res
-  ReservationGenerator.generate_random
-end
-
-def generate_blackout
-  BlackoutGenerator.generate
-end
-
-def generate_objs(method, obj, n)
+def generate_objs(obj, n)
   return if n == 0
-  puts "\n"
+  puts "Generating #{n} #{obj.camelize}...\n"
   progress = ProgressBar.create(format: PROGRESS_STR, total: n)
   n.times do
-    send(method)
+    Generator.send(obj)
     progress.increment
   end
-  puts "#{n} #{obj.camelize} records successfully created!"
 end
 
 # START SCRIPT
@@ -304,14 +204,14 @@ end
 # User generation
 
 n = MINIMAL ? 25 : ask_for_records('User')
-generate_objs(:generate_user, 'user', n)
+generate_objs('user', n)
 
 # Category generation
 # ============================================================================
 
 n = MINIMAL ? 10 : ask_for_records('Category')
 
-generate_objs(:generate_category, 'category', n)
+generate_objs('category', n)
 
 # EquipmentModel generation
 # ============================================================================
@@ -319,7 +219,7 @@ generate_objs(:generate_category, 'category', n)
 unless Category.count == 0
   n = MINIMAL ? 25 : ask_for_records('EquipmentModel')
   puts "\nThis is going to take awhile...\n" unless NO_PICS
-  generate_objs(:generate_em, 'equipment_model', n)
+  generate_objs('equipment_model', n)
 end
 
 # Eqobj, Procedures, and Requirement generation
@@ -327,23 +227,23 @@ end
 
 unless EquipmentModel.count == 0
   n = MINIMAL ? 50 : ask_for_records('EquipmentItem')
-  generate_objs(:generate_ei, 'equipment_item', n)
+  generate_objs('equipment_item', n)
 
   n = MINIMAL ? 0 : ask_for_records('Requirement')
-  generate_objs(:generate_req, 'requirement', n)
+  generate_objs('requirement', n)
 
   n = MINIMAL ? 3 : ask_for_records('CheckinProcedure')
-  generate_objs(:generate_checkin, 'checkin_procedure', n)
+  generate_objs('checkin_procedure', n)
 
   n = MINIMAL ? 3 : ask_for_records('CheckoutProcedure')
-  generate_objs(:generate_checkout, 'checkout_procedure', n)
+  generate_objs('checkout_procedure', n)
 end
 
 # Blackout Date generation
 # ============================================================================
 
 n = MINIMAL ? 0 : ask_for_records('Blackout')
-generate_objs(:generate_blackout, 'blackout', n)
+generate_objs('blackout', n)
 
 # Reservation generation
 # ============================================================================
@@ -351,11 +251,10 @@ generate_objs(:generate_blackout, 'blackout', n)
 unless EquipmentItem.count == 0
   if MINIMAL
     puts "\nGenerating reservations at each point in the lifecycle..."
-    ReservationGenerator.generate_all_types
-    puts "\nGenerating other random reservations..."
+    Generator.all_reservation_types
   end
   n = MINIMAL ? 5 : ask_for_records('Reservation')
-  generate_objs(:generate_res, 'reservation', n)
+  generate_objs('reservation', n)
 end
 
 puts "\n***Successfully seeded all records! (#{Time.zone.now - t1}s)***\n\n"

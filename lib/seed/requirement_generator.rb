@@ -1,5 +1,5 @@
 module RequirementGenerator
-  def generate
+  def self.generate
     Requirement.create! do |req|
       req.equipment_models = EquipmentModel.all.sample(rand(1..3))
       req.contact_name = FFaker::Name.name

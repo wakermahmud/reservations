@@ -1,7 +1,7 @@
 module EquipmentModelGenerator
   IMAGES = Dir.glob(File.join(Rails.root, 'db', 'seed_images', '*'))
 
-  def generate
+  def self.generate
     EquipmentModel.create! do |em|
       em.name = FFaker::Product.product + ' ' + rand(1..9001).to_s
       em.description = FFaker::HipsterIpsum.paragraph(16)

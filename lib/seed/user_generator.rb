@@ -1,5 +1,5 @@
 module UserGenerator
-  def generate
+  def self.generate
     User.create do |u|
       u.first_name = FFaker::Name.first_name
       u.last_name = FFaker::Name.last_name

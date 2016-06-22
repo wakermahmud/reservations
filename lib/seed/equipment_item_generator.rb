@@ -1,5 +1,5 @@
 module EquipmentItemGenerator
-  def generate
+  def self.generate
     EquipmentItem.create! do |ei|
       ei.name = "Number #{(0...3).map { 65.+(rand(25)).chr }.join}" +
         rand(1..9001).to_s
