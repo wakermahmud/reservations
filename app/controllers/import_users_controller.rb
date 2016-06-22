@@ -57,8 +57,7 @@ class ImportUsersController < ApplicationController
     end
 
     # make sure we have username data (otherwise all will always fail)
-    unless imported_users.first.keys.include?(:username) ||
-           env?('CAS_AUTH')
+    unless imported_users.first.keys.include?(:username) || !env?('CAS_AUTH')
       flash[:error] = 'Unable to import CSV file. None of the users will be '\
         'able to log in without specifying \'username\' data.'
       redirect_to(:back) && return
