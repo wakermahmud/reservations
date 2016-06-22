@@ -18,8 +18,6 @@ module ReservationGenerator
     attempt_res_gen(RES_TYPES.sample, true)
   end
 
-  private
-
   def self.attempt_res_gen(type, random = false)
     50.times do
       res = gen_res(random)

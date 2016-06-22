@@ -7,8 +7,6 @@ module ProcedureGenerator
     CheckoutProcedure.create!(attributes)
   end
 
-  private
-
   def self.attributes
     { step: FFaker::HipsterIpsum.sentence,
       equipment_model_id: EquipmentModel.all.sample.id }
