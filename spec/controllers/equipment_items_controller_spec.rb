@@ -44,7 +44,7 @@ describe EquipmentItemsController, type: :controller do
       end
       context 'with show deleted' do
         context 'with @equipment_model set' do
-          it 'should populate an array of all model-type equipment items' do
+          it 'populates an array of all model-type equipment items' do
             get :index, equipment_model_id: item.equipment_model,
                         show_deleted: true
             expect(assigns(:equipment_items)).to \
@@ -52,7 +52,7 @@ describe EquipmentItemsController, type: :controller do
           end
         end
         context 'without @equipment_model set' do
-          it 'should populate an array of all equipment items' do
+          it 'populates an array of all equipment items' do
             get :index, show_deleted: true
             expect(assigns(:equipment_items)).to \
                    match_array([item, same_cat_inactive, deactivated_item,
@@ -70,7 +70,7 @@ describe EquipmentItemsController, type: :controller do
     end
     context 'with non-admin user' do
       before { sign_in FactoryGirl.create(:user) }
-      it 'should redirect to root' do
+      it 'redirects to root' do
         get :index
         expect(response).to redirect_to(root_url)
       end
@@ -84,7 +84,7 @@ describe EquipmentItemsController, type: :controller do
         get :show, id: item
       end
       it_behaves_like 'success', :show
-      it 'should set to correct equipment item' do
+      it 'sets to correct equipment item' do
         expect(assigns(:equipment_item)).to eq(item)
       end
     end
@@ -93,7 +93,7 @@ describe EquipmentItemsController, type: :controller do
         sign_in FactoryGirl.create(:user)
         get :show, id: item
       end
-      it 'should redirect to root' do
+      it 'redirects to root' do
         get :show, id: item
         expect(response).to redirect_to(root_url)
       end
@@ -125,7 +125,7 @@ describe EquipmentItemsController, type: :controller do
         sign_in FactoryGirl.create(:user)
         get :new
       end
-      it 'should redirect to root' do
+      it 'redirects to root' do
         get :new
         expect(response).to redirect_to(root_url)
       end
@@ -145,7 +145,7 @@ describe EquipmentItemsController, type: :controller do
         end
         it { is_expected.to set_flash }
         it { is_expected.to redirect_to(EquipmentItem.last.equipment_model) }
-        it 'should save item with notes' do
+        it 'saves item with notes' do
           expect do
             post :create, equipment_item: FactoryGirl.attributes_for(
               :equipment_item, equipment_model_id: item.equipment_model.id
@@ -163,7 +163,7 @@ describe EquipmentItemsController, type: :controller do
         end
         it { is_expected.not_to set_flash }
         it { is_expected.to render_template(:new) }
-        it 'should not save' do
+        it 'does not save' do
           expect do
             post :create,
                  equipment_item: FactoryGirl.attributes_for(:equipment_item,
@@ -174,7 +174,7 @@ describe EquipmentItemsController, type: :controller do
     end
     context 'with non-admin user' do
       before { sign_in FactoryGirl.create(:user) }
-      it 'should redirect to root' do
+      it 'redirects to root' do
         post :create,
              equipment_item: FactoryGirl.attributes_for(:equipment_item)
         expect(response).to redirect_to(root_url)
@@ -197,7 +197,7 @@ describe EquipmentItemsController, type: :controller do
     end
     context 'with non-admin user' do
       before { sign_in FactoryGirl.create(:user) }
-      it 'should redirect to root' do
+      it 'redirects to root' do
         get :edit, id: item
         expect(response).to redirect_to(root_url)
       end
@@ -236,7 +236,7 @@ describe EquipmentItemsController, type: :controller do
         end
         it { is_expected.not_to set_flash }
         it { is_expected.to render_template(:edit) }
-        it 'should not update attributes' do
+        it 'does not update attributes' do
           item.reload
           expect(item.name).not_to be_nil
         end
@@ -244,7 +244,7 @@ describe EquipmentItemsController, type: :controller do
     end
     context 'with non-admin user' do
       before { sign_in FactoryGirl.create(:user) }
-      it 'should redirect to root' do
+      it 'redirects to root' do
         put :update,
             id: item,
             equipment_item: FactoryGirl.attributes_for(:equipment_item)
@@ -264,7 +264,7 @@ describe EquipmentItemsController, type: :controller do
       it { expect(response).to be_redirect }
       it { expect(item.deactivation_reason).to eq('Because I can') }
       it { expect(item.deleted_at).not_to be_nil }
-      it 'should change the notes' do
+      it 'changes the notes' do
         new_item = FactoryGirl.create(:equipment_item)
         put :deactivate, id: new_item, deactivation_reason: 'reason'
         expect { new_item.reload }.to change(new_item, :notes)
@@ -275,7 +275,7 @@ describe EquipmentItemsController, type: :controller do
       before do
         sign_in FactoryGirl.create(:user)
       end
-      it 'should redirect to root' do
+      it 'redirects to root' do
         put :deactivate, id: item, deactivation_reason: "Because I can't"
         expect(response).to redirect_to(root_url)
       end
@@ -294,7 +294,7 @@ describe EquipmentItemsController, type: :controller do
       it { expect(response).to be_redirect }
       it { expect(deactivated_item.deactivation_reason).to be_nil }
 
-      it 'should change the notes' do
+      it 'changes the notes' do
         new_item = FactoryGirl.create(:equipment_item)
         put :activate, id: new_item
         expect { new_item.reload }.to change(new_item, :notes)
@@ -306,7 +306,7 @@ describe EquipmentItemsController, type: :controller do
         sign_in FactoryGirl.create(:user)
       end
 
-      it 'should redirect to root' do
+      it 'redirects to root' do
         put :activate, id: item
         expect(response).to redirect_to(root_url)
       end
