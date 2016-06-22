@@ -1,5 +1,11 @@
 require 'spec_helper'
 
+shared_examples 'success' do |template|
+  it { is_expected.to respond_with(:success) }
+  it { is_expected.to render_template(template) }
+  it { is_expected.not_to set_flash }
+end
+
 describe EquipmentItemsController, type: :controller do
   before(:each) { mock_app_config }
   let!(:item) { FactoryGirl.create(:equipment_item) }
@@ -9,81 +15,48 @@ describe EquipmentItemsController, type: :controller do
 
   describe 'GET index' do
     context 'with admin user' do
+      let!(:other_cat_active) { FactoryGirl.create(:equipment_item) }
+      let!(:same_cat_inactive) do
+        FactoryGirl.create(:equipment_item,
+                           equipment_model: item.equipment_model,
+                           deleted_at: Time.zone.today)
+      end
       before do
         sign_in FactoryGirl.create(:admin)
         get :index
       end
-      it { is_expected.to respond_with(:success) }
-      it { is_expected.to render_template(:index) }
-      it { is_expected.not_to set_flash }
+
+      it_behaves_like 'success', :index
+
       context 'without show deleted' do
-        let!(:item_other_cat_active) { FactoryGirl.create(:equipment_item) }
-        let!(:item_other_cat_inactive) do
-          FactoryGirl.create(:equipment_item,
-                             deleted_at: Time.zone.today)
-        end
         context 'with @equipment_model set' do
-          it 'should populate an array of all active model-type equipment '\
-            'items' do
-            item_same_cat_inactive =
-              FactoryGirl.create(:equipment_item,
-                                 equipment_model: item.equipment_model,
-                                 deleted_at: Time.zone.today)
+          it 'populates an array of all active model-type equipment items' do
             get :index, equipment_model_id: item.equipment_model
-            expect(assigns(:equipment_items).include?(item)).to be_truthy
-            expect(assigns(:equipment_items)
-              .include?(item_other_cat_active)).not_to be_truthy
-            expect(assigns(:equipment_items)
-              .include?(item_same_cat_inactive)).not_to be_truthy
-            expect(assigns(:equipment_items)
-              .include?(item_other_cat_inactive)).not_to be_truthy
-            expect(assigns(:equipment_items).size).to eq(1)
+            expect(assigns(:equipment_items)).to eq([item])
           end
         end
         context 'without @equipment_model set' do
-          it 'should populate an array of all active equipment items' do
-            expect(assigns(:equipment_items).include?(item)).to be_truthy
-            expect(assigns(:equipment_items)
-              .include?(item_other_cat_active)).to be_truthy
-            expect(assigns(:equipment_items)
-              .include?(item_other_cat_inactive)).not_to be_truthy
-            expect(assigns(:equipment_items).size).to eq(2)
+          it 'populates an array of all active equipment items' do
+            expect(assigns(:equipment_items)).to \
+                   match_array([item, other_cat_active])
           end
         end
       end
       context 'with show deleted' do
-        let!(:item_other_cat_active) { FactoryGirl.create(:equipment_item) }
-        let!(:item_other_cat_inactive) do
-          FactoryGirl.create(:equipment_item,
-                             deleted_at: Time.zone.today)
-        end
         context 'with @equipment_model set' do
           it 'should populate an array of all model-type equipment items' do
-            item_same_cat_inactive =
-              FactoryGirl.create(:equipment_item,
-                                 equipment_model: item.equipment_model,
-                                 deleted_at: Time.zone.today)
             get :index, equipment_model_id: item.equipment_model,
                         show_deleted: true
-            expect(assigns(:equipment_items).include?(item)).to be_truthy
-            expect(assigns(:equipment_items)
-              .include?(item_other_cat_active)).not_to be_truthy
-            expect(assigns(:equipment_items)
-              .include?(item_same_cat_inactive)).to be_truthy
-            expect(assigns(:equipment_items)
-              .include?(item_other_cat_inactive)).not_to be_truthy
-            expect(assigns(:equipment_items).size).to eq(2)
+            expect(assigns(:equipment_items)).to \
+                   match_array([item, same_cat_inactive])
           end
         end
         context 'without @equipment_model set' do
           it 'should populate an array of all equipment items' do
             get :index, show_deleted: true
-            expect(assigns(:equipment_items).include?(item)).to be_truthy
-            expect(assigns(:equipment_items)
-              .include?(item_other_cat_active)).to be_truthy
-            expect(assigns(:equipment_items)
-              .include?(item_other_cat_inactive)).to be_truthy
-            expect(assigns(:equipment_items).size).to eq(4)
+            expect(assigns(:equipment_items)).to \
+                   match_array([item, same_cat_inactive, deactivated_item,
+                                other_cat_active])
           end
         end
       end
@@ -93,8 +66,7 @@ describe EquipmentItemsController, type: :controller do
         sign_in FactoryGirl.create(:checkout_person)
         get :index
       end
-      it { is_expected.to respond_with(:success) }
-      it { is_expected.to render_template(:index) }
+      it_behaves_like 'success', :index
     end
     context 'with non-admin user' do
       before { sign_in FactoryGirl.create(:user) }
@@ -111,9 +83,7 @@ describe EquipmentItemsController, type: :controller do
         sign_in FactoryGirl.create(:admin)
         get :show, id: item
       end
-      it { is_expected.to respond_with(:success) }
-      it { is_expected.to render_template(:show) }
-      it { is_expected.not_to set_flash }
+      it_behaves_like 'success', :show
       it 'should set to correct equipment item' do
         expect(assigns(:equipment_item)).to eq(item)
       end
@@ -136,9 +106,7 @@ describe EquipmentItemsController, type: :controller do
         sign_in FactoryGirl.create(:admin)
         get :new
       end
-      it { is_expected.to respond_with(:success) }
-      it { is_expected.to render_template(:new) }
-      it { is_expected.not_to set_flash }
+      it_behaves_like 'success', :new
       it 'assigns a new equipment item to @equipment_item' do
         expect(assigns(:equipment_item)).to be_new_record
         expect(assigns(:equipment_item)).to be_kind_of(EquipmentItem)
@@ -147,9 +115,9 @@ describe EquipmentItemsController, type: :controller do
         expect(assigns(:equipment_item).equipment_model).to be_nil
       end
       it 'sets equipment_model when one is passed through params' do
-        model = item.equipment_model
-        get :new, equipment_model_id: model
-        expect(assigns(:equipment_item).equipment_model).to eq(model)
+        get :new, equipment_model_id: item.equipment_model
+        expect(assigns(:equipment_item).equipment_model).to \
+          eq(item.equipment_model)
       end
     end
     context 'with non-admin user' do
@@ -175,6 +143,8 @@ describe EquipmentItemsController, type: :controller do
                                  serial: 'Enter serial # (optional)',
                                  equipment_model_id: item.equipment_model.id)
         end
+        it { is_expected.to set_flash }
+        it { is_expected.to redirect_to(EquipmentItem.last.equipment_model) }
         it 'should save item with notes' do
           expect do
             post :create, equipment_item: FactoryGirl.attributes_for(
@@ -184,8 +154,6 @@ describe EquipmentItemsController, type: :controller do
           expect(EquipmentItem.last.notes).not_to be_nil
           expect(EquipmentItem.last.notes).not_to be('')
         end
-        it { is_expected.to set_flash }
-        it { is_expected.to redirect_to(EquipmentItem.last.equipment_model) }
       end
       context 'without valid attributes' do
         before do
@@ -202,7 +170,6 @@ describe EquipmentItemsController, type: :controller do
                                                             name: nil)
           end.not_to change(EquipmentItem, :count)
         end
-        it { is_expected.to render_template(:new) }
       end
     end
     context 'with non-admin user' do
@@ -221,9 +188,9 @@ describe EquipmentItemsController, type: :controller do
         sign_in FactoryGirl.create(:admin)
         get :edit, id: item
       end
-      it { is_expected.to respond_with(:success) }
-      it { is_expected.to render_template(:edit) }
-      it { is_expected.not_to set_flash }
+
+      it_behaves_like 'success', :edit
+
       it 'sets @equipment_item to selected item' do
         expect(assigns(:equipment_item)).to eq(item)
       end
@@ -248,6 +215,7 @@ describe EquipmentItemsController, type: :controller do
                                                          name: 'Obj')
         end
         it { is_expected.to set_flash }
+        it { is_expected.to redirect_to(item) }
         it 'sets @equipment_item to selected item' do
           expect(assigns(:equipment_item)).to eq(item)
         end
@@ -258,7 +226,6 @@ describe EquipmentItemsController, type: :controller do
         it 'updates notes' do
           expect { item.reload }.to change(item, :notes)
         end
-        it { is_expected.to redirect_to(item) }
       end
       context 'without valid attributes' do
         before do
@@ -268,11 +235,11 @@ describe EquipmentItemsController, type: :controller do
                                                          name: nil)
         end
         it { is_expected.not_to set_flash }
+        it { is_expected.to render_template(:edit) }
         it 'should not update attributes' do
           item.reload
           expect(item.name).not_to be_nil
         end
-        it { is_expected.to render_template(:edit) }
       end
     end
     context 'with non-admin user' do
