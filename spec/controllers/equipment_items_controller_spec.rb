@@ -38,7 +38,7 @@ describe EquipmentItemsController, type: :controller do
         context 'without @equipment_model set' do
           it 'populates an array of all active equipment items' do
             expect(assigns(:equipment_items)).to \
-                   match_array([item, other_cat_active])
+              match_array([item, other_cat_active])
           end
         end
       end
@@ -48,15 +48,15 @@ describe EquipmentItemsController, type: :controller do
             get :index, equipment_model_id: item.equipment_model,
                         show_deleted: true
             expect(assigns(:equipment_items)).to \
-                   match_array([item, same_cat_inactive])
+              match_array([item, same_cat_inactive])
           end
         end
         context 'without @equipment_model set' do
           it 'populates an array of all equipment items' do
             get :index, show_deleted: true
             expect(assigns(:equipment_items)).to \
-                   match_array([item, same_cat_inactive, deactivated_item,
-                                other_cat_active])
+              match_array([item, same_cat_inactive, deactivated_item,
+                           other_cat_active])
           end
         end
       end
