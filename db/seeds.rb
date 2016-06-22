@@ -49,9 +49,6 @@ OVERDUE_RES_EMAIL_BODY = File.read(File.join(DEFAULT_MSGS, 'overdue_email'))
 DELETED_MISSED_RES_EMAIL = File.read(File.join(DEFAULT_MSGS,
                                                'deleted_missed_email'))
 
-# max number of attempts to build valid record before quitting
-MAX_TRIES = 50
-
 IMAGES = Dir.glob(File.join(Rails.root, 'db', 'seed_images', '*'))
 
 # Progress bar format string
