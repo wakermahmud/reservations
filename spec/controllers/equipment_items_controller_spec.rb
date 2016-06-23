@@ -1,17 +1,17 @@
 require 'spec_helper'
 
-shared_examples 'success' do |template|
-  it { is_expected.to respond_with(:success) }
-  it { is_expected.to render_template(template) }
-  it { is_expected.not_to set_flash }
-end
-
 describe EquipmentItemsController, type: :controller do
   before(:each) { mock_app_config }
   let!(:item) { FactoryGirl.create(:equipment_item) }
   let!(:deactivated_item) { FactoryGirl.create(:deactivated) }
 
   it_behaves_like 'calendarable', EquipmentItem
+
+  shared_examples 'success' do |template|
+    it { is_expected.to respond_with(:success) }
+    it { is_expected.to render_template(template) }
+    it { is_expected.not_to set_flash }
+  end
 
   describe 'GET index' do
     context 'with admin user' do
