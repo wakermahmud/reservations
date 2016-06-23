@@ -29,19 +29,20 @@ describe CategoriesController, type: :controller do
 
   describe 'GET index' do
     let!(:inactive_cat) do
-        FactoryGirl.create(:category, deleted_at: Time.zone.today - 1)
+      FactoryGirl.create(:category, deleted_at: Time.zone.today - 1)
     end
     context 'user is admin' do
       before { sign_in FactoryGirl.create(:admin) }
       it_behaves_like 'success', :get, :index
-      it 'should populate an array of all categories if show deleted is true' do
-        get :index, show_deleted: true
-        expect(assigns(:categories)).to eq([cat, inactive_cat])
-      end
-      it 'should populate an array of active categories if show deleted is '\
-        'nil or false' do
+      it 'populates an array of active categories' do
         get :index
         expect(assigns(:categories)).to eq([cat])
+      end
+      context 'show_deleted' do
+        it 'populates an array of all categories' do
+          get :index, show_deleted: true
+          expect(assigns(:categories)).to eq([cat, inactive_cat])
+        end
       end
     end
     context 'user is not admin' do
@@ -52,7 +53,7 @@ describe CategoriesController, type: :controller do
   describe 'GET show' do
     context 'user is admin' do
       it_behaves_like 'success', :get, :show, :id
-      it 'should set category to the selected category' do
+      it 'sets category to the selected category' do
         sign_in FactoryGirl.create(:admin)
         get :show, id: cat
         expect(assigns(:category)).to eq(cat)
@@ -110,7 +111,7 @@ describe CategoriesController, type: :controller do
       end
     end
     context 'not admin' do
-      it 'should redirect to root url' do
+      it 'redirects to root url' do
         sign_in FactoryGirl.create(:user)
         post :create, category: FactoryGirl.attributes_for(:category)
         expect(response).to redirect_to(root_url)
@@ -120,7 +121,7 @@ describe CategoriesController, type: :controller do
   describe 'GET edit' do
     context 'is admin' do
       it_behaves_like 'success', :get, :edit, :id
-      it 'should set category to the selected category' do
+      it 'sets category to the selected category' do
         sign_in FactoryGirl.create(:admin)
         get :edit, id: cat
         expect(assigns(:category)).to eq(cat)
@@ -141,10 +142,10 @@ describe CategoriesController, type: :controller do
               id: cat,
               category: FactoryGirl.attributes_for(:category, name: 'Updated')
         end
-        it 'should set category to the correct category' do
+        it 'sets category to the correct category' do
           expect(assigns(:category)).to eq(cat)
         end
-        it 'should successfully save new attributes to the database' do
+        it 'saves new attributes to the database' do
           cat.reload
           expect(cat.name).to eq('Updated')
         end
@@ -159,7 +160,7 @@ describe CategoriesController, type: :controller do
                                                    name: nil,
                                                    max_per_user: 10)
         end
-        it 'should not update attributes of category in the database' do
+        it 'does not update attributes of category in the database' do
           cat.reload
           expect(cat.name).not_to be_nil
           expect(cat.max_per_user).not_to eq(10)
