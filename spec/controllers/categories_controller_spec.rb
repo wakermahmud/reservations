@@ -1,87 +1,80 @@
 require 'spec_helper'
 
 describe CategoriesController, type: :controller do
-  before(:each) do
-    mock_app_config
-    @category = FactoryGirl.create(:category)
-  end
+  before(:each) { mock_app_config }
+  let!(:cat) { FactoryGirl.create(:category) }
 
   it_behaves_like 'calendarable', Category
 
+  shared_examples 'success' do |action, template, *args|
+    before do
+      sign_in FactoryGirl.create(:admin)
+      options = args.map { |a| [a, cat] }.to_h
+      send(action, template, **options)
+    end
+    it { is_expected.to respond_with(:success) }
+    it { is_expected.to render_template(template) }
+    it { is_expected.not_to set_flash }
+  end
+
+  shared_examples 'redirect' do |action, template, *args|
+    before do
+      sign_in FactoryGirl.create(:user)
+      options = args.map { |a| [a, cat] }.to_h
+      send(action, template, **options)
+    end
+    it { is_expected.to redirect_to(root_url) }
+    it { is_expected.to set_flash }
+  end
+
   describe 'GET index' do
-    before(:each) do
-      @inactive_category =
+    let!(:inactive_cat) do
         FactoryGirl.create(:category, deleted_at: Time.zone.today - 1)
     end
     context 'user is admin' do
-      before(:each) do
-        sign_in FactoryGirl.create(:admin)
-        get :index
-      end
+      before { sign_in FactoryGirl.create(:admin) }
+      it_behaves_like 'success', :get, :index
       it 'should populate an array of all categories if show deleted is true' do
         get :index, show_deleted: true
-        expect(assigns(:categories)).to eq([@category, @inactive_category])
+        expect(assigns(:categories)).to eq([cat, inactive_cat])
       end
       it 'should populate an array of active categories if show deleted is '\
         'nil or false' do
-        expect(assigns(:categories)).to eq([@category])
+        get :index
+        expect(assigns(:categories)).to eq([cat])
       end
-      it { is_expected.to respond_with(:success) }
-      it { is_expected.to render_template(:index) }
-      it { is_expected.not_to set_flash }
     end
     context 'user is not admin' do
-      before(:each) do
-        sign_in FactoryGirl.create(:user)
-        get :index
-      end
-      it { is_expected.to redirect_to(root_url) }
-      it { is_expected.to set_flash }
+      it_behaves_like 'redirect', :get, :index
     end
   end
+
   describe 'GET show' do
     context 'user is admin' do
-      before(:each) do
+      it_behaves_like 'success', :get, :show, :id
+      it 'should set category to the selected category' do
         sign_in FactoryGirl.create(:admin)
-        get :show, id: @category
-      end
-      it { is_expected.to respond_with(:success) }
-      it { is_expected.to render_template(:show) }
-      it { is_expected.not_to set_flash }
-      it 'should set @category to the selected category' do
-        expect(assigns(:category)).to eq(@category)
+        get :show, id: cat
+        expect(assigns(:category)).to eq(cat)
       end
     end
     context 'user is not admin' do
-      before(:each) do
-        sign_in FactoryGirl.create(:user)
-        get :show, id: @category
-      end
-      it { is_expected.to redirect_to(root_url) }
-      it { is_expected.to set_flash }
+      it_behaves_like 'redirect', :get, :show, :id
     end
   end
-  # all methods below should redirect to root_url if user is not an admin
+
   describe 'GET new' do
     context 'is admin' do
-      before(:each) do
+      it_behaves_like 'success', :get, :new
+      it 'assigns a new category to category' do
         sign_in FactoryGirl.create(:admin)
         get :new
-      end
-      it { is_expected.to respond_with(:success) }
-      it { is_expected.to render_template(:new) }
-      it { is_expected.not_to set_flash }
-      it 'assigns a new category to @category' do
         expect(assigns(:category)).to be_new_record
         expect(assigns(:category).is_a?(Category)).to be_truthy
       end
     end
     context 'not admin' do
-      it 'should redirect to root_url' do
-        sign_in FactoryGirl.create(:user)
-        get :new
-        expect(response).to redirect_to(root_url)
-      end
+      it_behaves_like 'redirect', :get, :new
     end
   end
   describe 'POST create' do
@@ -126,23 +119,15 @@ describe CategoriesController, type: :controller do
   end
   describe 'GET edit' do
     context 'is admin' do
-      before(:each) do
+      it_behaves_like 'success', :get, :edit, :id
+      it 'should set category to the selected category' do
         sign_in FactoryGirl.create(:admin)
-        get :edit, id: @category
+        get :edit, id: cat
+        expect(assigns(:category)).to eq(cat)
       end
-      it 'should set @category to the selected category' do
-        expect(assigns(:category)).to eq(@category)
-      end
-      it { is_expected.to respond_with(:success) }
-      it { is_expected.to render_template(:edit) }
-      it { is_expected.not_to set_flash }
     end
     context 'not admin' do
-      it 'should redirect to root_url' do
-        sign_in FactoryGirl.create(:user)
-        get :edit, id: @category
-        expect(response).to redirect_to(root_url)
-      end
+      it_behaves_like 'redirect', :get, :edit, :id
     end
   end
   describe 'PUT update' do
@@ -153,31 +138,31 @@ describe CategoriesController, type: :controller do
       context 'with valid attributes' do
         before(:each) do
           put :update,
-              id: @category,
+              id: cat,
               category: FactoryGirl.attributes_for(:category, name: 'Updated')
         end
-        it 'should set @category to the correct category' do
-          expect(assigns(:category)).to eq(@category)
+        it 'should set category to the correct category' do
+          expect(assigns(:category)).to eq(cat)
         end
         it 'should successfully save new attributes to the database' do
-          @category.reload
-          expect(@category.name).to eq('Updated')
+          cat.reload
+          expect(cat.name).to eq('Updated')
         end
-        it { is_expected.to redirect_to(@category) }
+        it { is_expected.to redirect_to(cat) }
         it { is_expected.to set_flash }
       end
       context 'with invalid attributes' do
         before(:each) do
           put :update,
-              id: @category,
+              id: cat,
               category: FactoryGirl.attributes_for(:category,
                                                    name: nil,
                                                    max_per_user: 10)
         end
-        it 'should not update attributes of @category in the database' do
-          @category.reload
-          expect(@category.name).not_to be_nil
-          expect(@category.max_per_user).not_to eq(10)
+        it 'should not update attributes of category in the database' do
+          cat.reload
+          expect(cat.name).not_to be_nil
+          expect(cat.max_per_user).not_to eq(10)
         end
         it { is_expected.to render_template(:edit) }
         it { is_expected.not_to set_flash }
