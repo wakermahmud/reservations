@@ -7,10 +7,26 @@ describe EquipmentItemsController, type: :controller do
 
   it_behaves_like 'calendarable', EquipmentItem
 
-  shared_examples 'success' do |template|
+  def map_args(value, *args)
+    args.map { |a| [a, value] }.to_h
+  end
+
+  shared_examples 'success' do |role, action, template, *args|
+    before do
+      sign_in FactoryGirl.create(role)
+      send(action, template, map_args(item, *args))
+    end
     it { is_expected.to respond_with(:success) }
     it { is_expected.to render_template(template) }
     it { is_expected.not_to set_flash }
+  end
+
+  shared_examples 'redirect when not admin' do |action, template, *args|
+    before do
+      sign_in FactoryGirl.create(:user)
+      send(action, template, map_args(item.attributes, *args))
+    end
+    it { is_expected.to redirect_to(root_url) }
   end
 
   describe 'GET index' do
@@ -23,10 +39,9 @@ describe EquipmentItemsController, type: :controller do
       end
       before do
         sign_in FactoryGirl.create(:admin)
-        get :index
       end
 
-      it_behaves_like 'success', :index
+      it_behaves_like 'success', :admin, :get, :index
 
       context 'without show deleted' do
         context 'with @equipment_model set' do
@@ -37,6 +52,7 @@ describe EquipmentItemsController, type: :controller do
         end
         context 'without @equipment_model set' do
           it 'populates an array of all active equipment items' do
+            get :index
             expect(assigns(:equipment_items)).to \
               match_array([item, other_cat_active])
           end
@@ -62,42 +78,21 @@ describe EquipmentItemsController, type: :controller do
       end
     end
     context 'with checkout person user' do
-      before do
-        sign_in FactoryGirl.create(:checkout_person)
-        get :index
-      end
-      it_behaves_like 'success', :index
+      it_behaves_like 'success', :checkout_person, :get, :index
     end
-    context 'with non-admin user' do
-      before { sign_in FactoryGirl.create(:user) }
-      it 'redirects to root' do
-        get :index
-        expect(response).to redirect_to(root_url)
-      end
-    end
+    it_behaves_like 'redirect when not admin', :get, :index
   end
 
   describe 'GET show' do
     context 'with admin user' do
-      before do
+      it_behaves_like 'success', :admin, :get, :show, :id
+      it 'sets to correct equipment item' do
         sign_in FactoryGirl.create(:admin)
         get :show, id: item
-      end
-      it_behaves_like 'success', :show
-      it 'sets to correct equipment item' do
         expect(assigns(:equipment_item)).to eq(item)
       end
     end
-    context 'with non-admin user' do
-      before do
-        sign_in FactoryGirl.create(:user)
-        get :show, id: item
-      end
-      it 'redirects to root' do
-        get :show, id: item
-        expect(response).to redirect_to(root_url)
-      end
-    end
+    it_behaves_like 'redirect when not admin', :get, :show, :id
   end
 
   describe 'GET new' do
@@ -106,7 +101,7 @@ describe EquipmentItemsController, type: :controller do
         sign_in FactoryGirl.create(:admin)
         get :new
       end
-      it_behaves_like 'success', :new
+      it_behaves_like 'success', :admin, :get, :new
       it 'assigns a new equipment item to @equipment_item' do
         expect(assigns(:equipment_item)).to be_new_record
         expect(assigns(:equipment_item)).to be_kind_of(EquipmentItem)
@@ -120,16 +115,7 @@ describe EquipmentItemsController, type: :controller do
           eq(item.equipment_model)
       end
     end
-    context 'with non-admin user' do
-      before do
-        sign_in FactoryGirl.create(:user)
-        get :new
-      end
-      it 'redirects to root' do
-        get :new
-        expect(response).to redirect_to(root_url)
-      end
-    end
+    it_behaves_like 'redirect when not admin', :get, :new
   end
 
   describe 'POST create' do
@@ -151,8 +137,7 @@ describe EquipmentItemsController, type: :controller do
               :equipment_item, equipment_model_id: item.equipment_model.id
             )
           end.to change(EquipmentItem, :count).by(1)
-          expect(EquipmentItem.last.notes).not_to be_nil
-          expect(EquipmentItem.last.notes).not_to be('')
+          expect(EquipmentItem.last.notes).not_to be_empty
         end
       end
       context 'without valid attributes' do
@@ -172,36 +157,19 @@ describe EquipmentItemsController, type: :controller do
         end
       end
     end
-    context 'with non-admin user' do
-      before { sign_in FactoryGirl.create(:user) }
-      it 'redirects to root' do
-        post :create,
-             equipment_item: FactoryGirl.attributes_for(:equipment_item)
-        expect(response).to redirect_to(root_url)
-      end
-    end
+    it_behaves_like 'redirect when not admin', :post, :create, :equipment_item
   end
 
   describe 'GET edit' do
     context 'with admin user' do
-      before do
+      it_behaves_like 'success', :admin, :get, :edit, :id
+      it 'sets @equipment_item to selected item' do
         sign_in FactoryGirl.create(:admin)
         get :edit, id: item
-      end
-
-      it_behaves_like 'success', :edit
-
-      it 'sets @equipment_item to selected item' do
         expect(assigns(:equipment_item)).to eq(item)
       end
     end
-    context 'with non-admin user' do
-      before { sign_in FactoryGirl.create(:user) }
-      it 'redirects to root' do
-        get :edit, id: item
-        expect(response).to redirect_to(root_url)
-      end
-    end
+    it_behaves_like 'redirect when not admin', :get, :edit, :id
   end
 
   describe 'PUT update' do
@@ -242,15 +210,8 @@ describe EquipmentItemsController, type: :controller do
         end
       end
     end
-    context 'with non-admin user' do
-      before { sign_in FactoryGirl.create(:user) }
-      it 'redirects to root' do
-        put :update,
-            id: item,
-            equipment_item: FactoryGirl.attributes_for(:equipment_item)
-        expect(response).to redirect_to(root_url)
-      end
-    end
+    it_behaves_like 'redirect when not admin', :put, :update, :id,
+                    :equipment_item
   end
 
   describe 'PUT deactivate' do
@@ -270,16 +231,7 @@ describe EquipmentItemsController, type: :controller do
         expect { new_item.reload }.to change(new_item, :notes)
       end
     end
-
-    context 'with non-admin user' do
-      before do
-        sign_in FactoryGirl.create(:user)
-      end
-      it 'redirects to root' do
-        put :deactivate, id: item, deactivation_reason: "Because I can't"
-        expect(response).to redirect_to(root_url)
-      end
-    end
+    it_behaves_like 'redirect when not admin', :put, :deactivate, :id
   end
 
   describe 'PUT activate' do
@@ -300,16 +252,6 @@ describe EquipmentItemsController, type: :controller do
         expect { new_item.reload }.to change(new_item, :notes)
       end
     end
-
-    context 'with non-admin user' do
-      before do
-        sign_in FactoryGirl.create(:user)
-      end
-
-      it 'redirects to root' do
-        put :activate, id: item
-        expect(response).to redirect_to(root_url)
-      end
-    end
+    it_behaves_like 'redirect when not admin', :put, :activate, :id
   end
 end
