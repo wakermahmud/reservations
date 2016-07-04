@@ -26,7 +26,7 @@ module ReservationGenerator
         res.save!
         # save the equipment model for the counter cache updates
         res.equipment_model.save
-        break
+        return res
       rescue
         res.delete
       end

@@ -1,5 +1,6 @@
 module EquipmentModelGenerator
   IMAGES = Dir.glob(File.join(Rails.root, 'db', 'seed_images', '*'))
+  NO_PICS ||= true
 
   def self.generate
     EquipmentModel.create! do |em|
