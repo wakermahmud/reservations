@@ -1,20 +1,20 @@
 require 'spec_helper'
 
 describe Generator do
-  OBJECTS = %i(app_config category requirement user superuser)
+  OBJECTS = %i(app_config category requirement user superuser).freeze
   shared_examples 'generates a valid' do |method|
-    it "#{method}" do
+    it method.to_s do
       expect(Generator.send(method)).to be_truthy
     end
   end
   OBJECTS.each { |o| it_behaves_like 'generates a valid', o }
 
   context 'blackout generation' do
-    before { Generator.user } 
+    before { Generator.user }
     it_behaves_like 'generates a valid', :blackout
   end
   context 'equipment_model generation' do
-    before { Generator.category } 
+    before { Generator.category }
     it_behaves_like 'generates a valid', :equipment_model
   end
 
