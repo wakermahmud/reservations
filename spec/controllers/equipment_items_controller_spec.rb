@@ -7,41 +7,27 @@ describe EquipmentItemsController, type: :controller do
 
   it_behaves_like 'calendarable', EquipmentItem
 
-  def map_args(value, *args)
-    args.map { |a| [a, value] }.to_h
-  end
-
-  shared_examples 'success' do |role, action, template, *args|
-    before do
-      sign_in FactoryGirl.create(role)
-      send(action, template, map_args(item, *args))
-    end
-    it { is_expected.to respond_with(:success) }
-    it { is_expected.to render_template(template) }
-    it { is_expected.not_to set_flash }
-  end
-
-  shared_examples 'redirect when not admin' do |action, template, *args|
-    before do
-      sign_in FactoryGirl.create(:user)
-      send(action, template, map_args(item.attributes, *args))
-    end
-    it { is_expected.to redirect_to(root_url) }
-  end
-
   describe 'GET index' do
     context 'with admin user' do
-      let!(:other_cat_active) { FactoryGirl.create(:equipment_item) }
-      let!(:same_cat_inactive) do
-        FactoryGirl.create(:equipment_item,
-                           equipment_model: item.equipment_model,
-                           deleted_at: Time.zone.today)
-      end
       before do
-        sign_in FactoryGirl.create(:admin)
+        mock_user_sign_in(mock_user(:admin))
       end
 
-      it_behaves_like 'success', :admin, :get, :index
+      describe 'basic function' do
+        before do
+          get :index
+        end
+        it_behaves_like 'successful request', :index
+      end
+
+      it 'defaults to all active equipment items' do
+      end
+
+      context '@equipment_model set' do
+      end
+
+      context 'show_deleted set' do
+      end
 
       context 'without show deleted' do
         context 'with @equipment_model set' do
@@ -78,21 +64,31 @@ describe EquipmentItemsController, type: :controller do
       end
     end
     context 'with checkout person user' do
-      it_behaves_like 'success', :checkout_person, :get, :index
+      before do
+        mock_user_sign_in(mock_user(:admin))
+        get :index
+      end
+      it_behaves_like 'successful request', :index
     end
-    it_behaves_like 'redirect when not admin', :get, :index
+    context 'with normal user' do
+      before do
+        mock_user_sign_in
+        get :index
+      end
+      it_behaves_like 'redirected request'
+    end
   end
 
   describe 'GET show' do
     context 'with admin user' do
-      it_behaves_like 'success', :admin, :get, :show, :id
+      it_behaves_like 'successful request', :admin, :get, :show, :id
       it 'sets to correct equipment item' do
         sign_in FactoryGirl.create(:admin)
         get :show, id: item
         expect(assigns(:equipment_item)).to eq(item)
       end
     end
-    it_behaves_like 'redirect when not admin', :get, :show, :id
+    it_behaves_like 'redirected request', :get, :show, :id
   end
 
   describe 'GET new' do
@@ -101,7 +97,7 @@ describe EquipmentItemsController, type: :controller do
         sign_in FactoryGirl.create(:admin)
         get :new
       end
-      it_behaves_like 'success', :admin, :get, :new
+      it_behaves_like 'successful request', :admin, :get, :new
       it 'assigns a new equipment item to @equipment_item' do
         expect(assigns(:equipment_item)).to be_new_record
         expect(assigns(:equipment_item)).to be_kind_of(EquipmentItem)
@@ -115,7 +111,7 @@ describe EquipmentItemsController, type: :controller do
           eq(item.equipment_model)
       end
     end
-    it_behaves_like 'redirect when not admin', :get, :new
+    it_behaves_like 'redirected request', :get, :new
   end
 
   describe 'POST create' do
@@ -157,19 +153,19 @@ describe EquipmentItemsController, type: :controller do
         end
       end
     end
-    it_behaves_like 'redirect when not admin', :post, :create, :equipment_item
+    it_behaves_like 'redirected request', :post, :create, :equipment_item
   end
 
   describe 'GET edit' do
     context 'with admin user' do
-      it_behaves_like 'success', :admin, :get, :edit, :id
+      it_behaves_like 'successful request', :admin, :get, :edit, :id
       it 'sets @equipment_item to selected item' do
         sign_in FactoryGirl.create(:admin)
         get :edit, id: item
         expect(assigns(:equipment_item)).to eq(item)
       end
     end
-    it_behaves_like 'redirect when not admin', :get, :edit, :id
+    it_behaves_like 'redirected request', :get, :edit, :id
   end
 
   describe 'PUT update' do
@@ -210,7 +206,7 @@ describe EquipmentItemsController, type: :controller do
         end
       end
     end
-    it_behaves_like 'redirect when not admin', :put, :update, :id,
+    it_behaves_like 'redirected request', :put, :update, :id,
                     :equipment_item
   end
 
@@ -231,7 +227,7 @@ describe EquipmentItemsController, type: :controller do
         expect { new_item.reload }.to change(new_item, :notes)
       end
     end
-    it_behaves_like 'redirect when not admin', :put, :deactivate, :id
+    it_behaves_like 'redirected request', :put, :deactivate, :id
   end
 
   describe 'PUT activate' do
@@ -252,6 +248,6 @@ describe EquipmentItemsController, type: :controller do
         expect { new_item.reload }.to change(new_item, :notes)
       end
     end
-    it_behaves_like 'redirect when not admin', :put, :activate, :id
+    it_behaves_like 'redirected request', :put, :activate, :id
   end
 end
