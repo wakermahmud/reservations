@@ -2,6 +2,7 @@ require 'spec_helper'
 
 describe CategoriesController, type: :controller do
   include CategoryMocker
+  include EquipmentModelMocker
   before(:each) { mock_app_config }
 
   it_behaves_like 'calendarable', Category
@@ -137,6 +138,62 @@ describe CategoriesController, type: :controller do
       before do
         mock_user_sign_in
         put :update, id: 1, category: { id: 2 }
+      end
+      it_behaves_like 'redirected request'
+    end
+  end
+
+  describe 'PUT deactivate' do
+    context 'is admin' do
+      before { mock_user_sign_in(mock_user(:admin)) }
+      shared_examples 'not confirmed' do |flash_type, **opts|
+        let!(:cat) { FactoryGirl.build_stubbed(:category) }
+        before do
+          allow(Category).to receive(:find).with(cat.id.to_s).and_return(cat)
+          allow(cat).to receive(:destroy)
+          put :deactivate, id: cat.id, **opts
+        end
+        it { is_expected.to set_flash[flash_type] }
+        it { is_expected.to redirect_to(cat) }
+        it "doesn't destroy the category" do
+          expect(cat).not_to have_received(:destroy)
+        end
+      end
+      it_behaves_like 'not confirmed', :notice, deactivation_cancelled: true
+      it_behaves_like 'not confirmed', :error
+
+      context 'confirmed' do
+        let!(:cat) { mock_category(traits: [:findable], equipment_models: []) }
+        before do
+          request.env['HTTP_REFERER'] = 'where_i_came_from'
+          put :deactivate, id: cat.id, deactivation_confirmed: true
+        end
+        it 'destroys the category' do
+          expect(cat).to have_received(:destroy)
+        end
+      end
+
+      context 'with reservations' do
+        let!(:cat) { mock_category(traits: [:findable]) }
+        let!(:res) { instance_spy('reservation') }
+        before do
+          model = mock_eq_model(traits: [[:with_category, cat: cat]])
+          # stub out scope chain -- SMELL
+          allow(Reservation).to receive(:for_eq_model).with(model.id)
+            .and_return(Reservation)
+          allow(Reservation).to receive(:finalized).and_return([res])
+          request.env['HTTP_REFERER'] = 'where_i_came_from'
+          put :deactivate, id: cat.id, deactivation_confirmed: true
+        end
+        it 'archives the reservation' do
+          expect(res).to have_received(:archive)
+        end
+      end
+    end
+    context 'user is not admin' do
+      before do
+        mock_user_sign_in
+        put :deactivate, id: 1
       end
       it_behaves_like 'redirected request'
     end

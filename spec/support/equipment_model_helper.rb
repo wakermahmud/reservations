@@ -19,12 +19,6 @@ module EquipmentModelMocker
     allow(EquipmentModel).to receive(:all).and_return(models)
   end
 
-  def mock_category(**attrs)
-    instance_spy('Category', **attrs).tap do |cat|
-      allow(Category).to receive(:find).and_return(cat)
-    end
-  end
-
   private
 
   def eq_model_findable(model)
