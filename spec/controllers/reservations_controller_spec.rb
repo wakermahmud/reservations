@@ -2,15 +2,10 @@ require 'spec_helper'
 require 'helpers/email_helper_spec'
 
 describe ReservationsController, type: :controller do
-  ## Common setup
-  render_views
-
-  before(:all) do
-    @user = FactoryGirl.create(:user)
-    @banned = FactoryGirl.create(:banned)
-    @checkout_person = FactoryGirl.create(:checkout_person)
-    @admin = FactoryGirl.create(:admin)
-  end
+  include ReservationMocker
+  include EquipmentModelMocker
+  include EquipmentItemMocker
+  #render_views
 
   before(:each) do
     @ac = mock_app_config(**FactoryGirl.attributes_for(:app_config),
@@ -18,230 +13,147 @@ describe ReservationsController, type: :controller do
                           override_on_create: false,
                           override_at_checkout: false,
                           res_exp_time: false)
-    @cart = FactoryGirl.build(:cart, reserver_id: @user.id)
-    sign_in @user
-    @reservation = FactoryGirl.create(:valid_reservation, reserver: @user)
-  end
-
-  ## Shared examples
-  shared_examples 'cannot access page' do
-    it { expect(response).to be_redirect }
-    it { is_expected.to set_flash }
   end
 
   shared_examples 'inaccessible by banned user' do
-    before(:each) do
-      sign_in @banned
-      allow(Reservation).to receive(:find)
-        .and_return(FactoryGirl.build_stubbed(:reservation, reserver: @banned))
+    it_behaves_like 'redirected request' do
+      before { mock_user_sign_in(mock_user(:banned)) }
     end
-    include_examples 'cannot access page'
-    it { is_expected.to redirect_to(root_path) }
   end
 
   describe '#update_index_dates (PUT)' do
-    subject do
-      put :update_index_dates, list: { start_date: Time.zone.today.to_s,
-                                       end_date: (Time.zone.today + 1.day).to_s,
-                                       filter: :reserved.to_s }
-    end
-    it { is_expected.to be_redirect }
     before(:each) do
-      @start = Time.zone.today
-      @end = (Time.zone.today + 1.day)
-      @filter = :reserved
-      put :update_index_dates, list: { start_date: @start.to_s,
-                                       end_date: @end.to_s,
-                                       filter: @filter.to_s }
+      mock_user_sign_in
+      list = { start_date: Time.zone.today.to_s,
+               end_date: (Time.zone.today + 1.day).to_s,
+               filter: :reserved }
+      put :update_index_dates, list: list
     end
+    it { is_expected.to redirect_to('/reservations') }
     it 'disables all_date viewing' do
       expect(session[:all_dates]).to be_falsey
     end
     it 'sets the session dates' do
-      expect(session[:index_start_date]).to eq(@start)
-      expect(session[:index_end_date]).to eq(@end)
+      expect(session[:index_start_date]).to eq(Time.zone.today)
+      expect(session[:index_end_date]).to eq(Time.zone.today + 1.day)
     end
     it 'sets the session filter' do
-      expect(session[:filter]).to eq(@filter)
+      expect(session[:filter]).to eq(:reserved)
     end
   end
 
   describe '#view_all_dates (PUT)' do
-    subject { put :view_all_dates }
-    it { is_expected.to be_redirect }
-    before(:each) do
+    before do
+      mock_user_sign_in
       put :view_all_dates
     end
+    it { is_expected.to redirect_to('/reservations') }
     it 'enables all_date viewing' do
       expect(session[:all_dates]).to be_truthy
     end
   end
 
-  ## Controller method tests
   describe '#index (GET /reservations/)' do
-    # check params[:filter]
-    # depending on admin status, default_filter changes
-    # depending on admin status, source of reservations (all v. own) changes
+    # SMELLS:
+    #   - switch statement (in setting the reservation collections)
+    #   - @filters 
+    #   - long method
+    #   - message chains
+    let!(:time_filtered) { spy('Array') }
 
-    FILTERS = [:reserved, :checked_out, :overdue, :missed,
-               :returned, :upcoming, :archived].freeze
-
-    context 'when accessed by non-banned user' do
-      subject { get :index }
-      it { is_expected.to be_success }
-      it { is_expected.to render_template(:index) }
-
-      shared_examples 'populates' do |trait|
-        before(:each) do
-          type = case trait
-                 when :reserved
-                   :valid_reservation
-                 when :returned
-                   :checked_in_reservation
-                 else
-                   (trait.to_s + '_reservation').to_sym
-                 end
-          FactoryGirl.create(type, reserver: @user)
-        end
-
-        it 'with the correct set' do
-          get :index, trait => true
-          expect(assigns(:reservations_set).uniq.sort).to \
-            eq(Reservation.send(trait)
-              .starts_on_days(assigns(:start_date), assigns(:end_date))
-              .uniq.sort)
-        end
-
-        it 'with respect to session[:filter] first' do
-          session[:filter] = trait.to_s
-          get :index, FILTERS.sample => true
-          expect(assigns(:reservations_set).uniq.sort).to \
-            eq(Reservation.send(trait)
-              .starts_on_days(assigns(:start_date), assigns(:end_date))
-              .uniq.sort)
-        end
+    shared_examples 'filterable' do
+      it 'can filter' do
+        trait = :checked_out
+        get :index, trait => true
+        # once from set_counts, once from filtering
+        # not sure where the third call is yet
+        expect(time_filtered).to have_received(trait).exactly(3).times
       end
-
-      FILTERS.each { |t| it_behaves_like 'populates', t }
-
-      context 'who is an admin' do
-        before(:each) do
-          sign_in @admin
-          FILTERS.each do |trait|
-            res = FactoryGirl.build(:valid_reservation, trait,
-                                    reserver: [@user, @admin].sample)
-            res.save(validate: false)
-          end
-        end
-        it 'uses :upcoming as default filter' do
-          get :index
-          expect(assigns(:reservations_set) - Reservation.upcoming.all)
-            .to be_empty
-        end
-      end
-
-      context 'who is not an admin' do
-        before(:each) do
-          sign_in @user
-          FILTERS.each do |trait|
-            res = FactoryGirl.build(:valid_reservation, trait,
-                                    reserver: [@user, @admin].sample)
-            res.save(validate: false)
-          end
-        end
-
-        it 'uses :reserved as the default filter' do
-          get :index
-          expect(assigns(:reservations_set) - @user.reservations.reserved)
-            .to be_empty
-        end
+      it 'with respect to session[:filter] first' do
+        trait = :checked_out
+        session_trait = :returned
+        session[:filter] = session_trait
+        get :index, trait => true
+        expect(time_filtered).to have_received(session_trait).exactly(3).times
+        # not sure where second call is coming from
+        expect(time_filtered).to have_received(trait).twice
       end
     end
 
+    context 'normal user' do
+      let!(:user) do
+        res = spy('Array', starts_on_days: time_filtered)
+        mock_user.tap do |u|
+          allow(u).to receive(:reservations).and_return(res)
+        end
+      end
+      before(:each) do 
+        mock_user_sign_in(user)
+        get :index
+      end
+      it { is_expected.to respond_with(:success) }
+      it { is_expected.to render_template(:index) }
+      it "only gets the current user's reservations" do
+        expect(user).to have_received(:reservations).at_least(:once)
+      end
+      it 'defaults to reserved' do
+        # twice: once from set_counts, once from filtering
+        expect(time_filtered).to have_received(:reserved).twice
+      end
+      it_behaves_like 'filterable'
+    end
+
+    context 'admin' do
+      let!(:user) { mock_user(:admin) }
+      before(:each) do
+        allow(Reservation).to receive(:starts_on_days)
+          .and_return(time_filtered)
+        mock_user_sign_in(user)
+        get :index
+      end
+      it 'gets all reservations' do
+        expect(Reservation).to have_received(:starts_on_days)
+      end
+      it 'defaults to upcoming' do
+        # twice: once from set_counts, once from filtering
+        expect(time_filtered).to have_received(:upcoming).twice
+      end
+      it_behaves_like 'filterable'
+    end
+
+    ### TODO: this fails
     it_behaves_like 'inaccessible by banned user' do
       before { get :index }
     end
   end
 
-  describe '#show (GET /reservations/:id)' do
-    before(:each) do
-      @admin_res = FactoryGirl.create(:valid_reservation, reserver: @admin)
-    end
-
-    shared_examples 'can view reservation by patron' do
-      before(:each) { get :show, id: @reservation.id }
-      it { is_expected.to render_template(:show) }
-      it { expect(response).to be_success }
-      it { expect(assigns(:reservation)).to eq @reservation }
-    end
-
-    shared_examples 'can view reservation by admin' do
-      before(:each) { get :show, id: @admin_res.id }
-      it { is_expected.to render_template(:show) }
-      it { expect(response).to be_success }
-      it { expect(assigns(:reservation)).to eq @admin_res }
-    end
-
-    shared_examples 'cannot view reservation by admin' do
-      before(:each) { get :show, id: @admin_res.id }
-      include_examples 'cannot access page'
-    end
-
-    context 'when accessed by admin' do
-      before(:each) do
-        sign_in @admin
-      end
-
-      it_behaves_like 'can view reservation by patron'
-      it_behaves_like 'can view reservation by admin'
-    end
-
-    context 'when accessed by checkout person' do
-      before(:each) do
-        sign_in @checkout_person
-      end
-
-      it_behaves_like 'can view reservation by patron'
-      it_behaves_like 'can view reservation by admin'
-    end
-
-    context 'when accessed by patron' do
-      before(:each) do
-        sign_in @user
-      end
-
-      it_behaves_like 'can view reservation by patron'
-      it_behaves_like 'cannot view reservation by admin'
-    end
-
-    it_behaves_like 'inaccessible by banned user' do
-      before { get :show, id: @reservation.id }
-    end
-  end
-
   describe '#new (GET /reservations/new)' do
-    # unhappy paths: banned user, there is no reservation in the cart
+    # SMELLS:
+    #   - long method
+    #   - redirect location set for testing in code ???
+    #   - feature envy
+    # most of this should probably be in the cart?
     it_behaves_like 'inaccessible by banned user' do
       before { get :new }
     end
 
-    context 'when accessed by a non-banned user' do
+    context 'normal user' do
+      let!(:user) { FactoryGirl.build_stubbed(:user) }
       before(:each) do
-        sign_in @user
+        allow(User).to receive(:find).with(user.id).and_return(user)
+        mock_user_sign_in(user)
         request.env['HTTP_REFERER'] = 'where_i_came_from'
       end
 
       context 'with an empty cart' do
-        before(:each) do
-          get :new
-        end
+        before(:each) { get :new }
         it { expect(response).to redirect_to('where_i_came_from') }
         it { is_expected.to set_flash }
       end
 
       context 'with a non-empty cart' do
         before(:each) do
-          @cart = FactoryGirl.build(:cart_with_items, reserver_id: @user.id)
+          @cart = FactoryGirl.build(:cart_with_items, reserver_id: user.id)
           get :new, nil, cart: @cart
         end
 
@@ -254,6 +166,15 @@ describe ReservationsController, type: :controller do
   end
 
   describe '#create (POST /reservations/create)' do
+    # SMELLS: so, so many of them
+    # not going to refactor this yet
+    before(:all) do
+      @user = FactoryGirl.create(:user)
+      @checkout_person = FactoryGirl.create(:checkout_person)
+    end
+    after(:all) do
+      User.destroy_all
+    end
     it_behaves_like 'inaccessible by banned user' do
       before do
         post :create,
@@ -453,58 +374,56 @@ describe ReservationsController, type: :controller do
   end
 
   describe '#edit (GET /reservations/:id/edit)' do
-    ## Unhappy paths
+    # SMELLS:
+    #   - message chain
     it_behaves_like 'inaccessible by banned user' do
-      before { get 'edit', id: @reservation.id }
+      before { get 'edit', id: 1 }
     end
 
     context 'when accessed by patron' do
       before(:each) do
-        sign_in @user
-        get 'edit', id: @reservation.id
+        mock_user_sign_in
+        get 'edit', id: 1
       end
-      include_examples 'cannot access page'
+      include_examples 'redirected request'
     end
 
     context 'when accessed by checkout person disallowed by settings' do
       before(:each) do
-        sign_in @checkout_person
+        mock_user_sign_in(mock_user(:checkout_person))
         allow(@ac).to receive(:checkout_persons_can_edit).and_return(false)
-        get 'edit', id: @reservation.id
+        get 'edit', id: 1
       end
-      include_examples 'cannot access page'
+      include_examples 'redirected request'
     end
 
-    ## Happy paths
     shared_examples 'can access edit page' do
-      it 'assigns @reservation' do
-        expect(assigns(:reservation)).to eq(@reservation)
+      let!(:item) { mock_eq_item(id: 1, name: 'Name') }
+      before do
+        model = mock_eq_model(traits: [[:with_item, item: item]])
+        res = mock_reservation(traits: [:findable], equipment_model: model)
+        get :edit, id: res.id
       end
       it 'assigns @option_array as Array' do
         expect(assigns(:option_array)).to be_an Array
       end
       it 'assigns @option_array with the correct contents' do
-        expect(assigns(:option_array)).to\
-          eq @reservation.equipment_model.equipment_items
-                         .collect { |e| [e.name, e.id] }
+        expect(assigns(:option_array)).to eq([[item.name, item.id]])
       end
       it { is_expected.to render_template(:edit) }
     end
 
     context 'when accessed by checkout person allowed by settings' do
       before(:each) do
-        sign_in @checkout_person
         allow(@ac).to receive(:checkout_persons_can_edit).and_return(true)
-        get :edit, id: @reservation.id
+        mock_user_sign_in(mock_user(:checkout_person))
       end
       include_examples 'can access edit page'
     end
 
     context 'when accessed by admin' do
       before(:each) do
-        sign_in @admin
-        allow(@ac).to receive(:checkout_persons_can_edit).and_return(false)
-        get :edit, id: @reservation.id
+        mock_user_sign_in(mock_user(:admin))
       end
       include_examples 'can access edit page'
     end
@@ -535,7 +454,7 @@ describe ReservationsController, type: :controller do
         sign_in @user
         put 'update', id: @reservation.id
       end
-      include_examples 'cannot access page'
+      include_examples 'redirected request'
     end
 
     context 'when accessed by checkout person disallowed by settings' do
@@ -546,7 +465,7 @@ describe ReservationsController, type: :controller do
             id: @reservation.id,
             reservation: FactoryGirl.attributes_for(:reservation)
       end
-      include_examples 'cannot access page'
+      include_examples 'redirected request'
     end
 
     ## Happy paths due to authorization
@@ -699,7 +618,7 @@ describe ReservationsController, type: :controller do
                                            due_date: Time.zone.today - 1.day),
               equipment_item: ''
         end
-        include_examples 'cannot access page'
+        include_examples 'redirected request'
 
         it 'does not update the reservations notes' do
           expect { @reservation.reload }.not_to change(@reservation, :notes)
@@ -752,7 +671,7 @@ describe ReservationsController, type: :controller do
     # Requires a block to be passed which defines let(:reservation)
     shared_examples 'cannot destroy reservation' do
       before(:each) { delete :destroy, id: reservation.id }
-      include_examples 'cannot access page'
+      include_examples 'redirected request'
     end
 
     context 'when accessed by admin' do
@@ -872,7 +791,7 @@ describe ReservationsController, type: :controller do
         get :manage, user_id: @user.id
       end
 
-      include_examples 'cannot access page'
+      include_examples 'redirected request'
     end
 
     context 'with banned reserver' do
@@ -947,7 +866,7 @@ describe ReservationsController, type: :controller do
         get :current, user_id: @user.id
       end
 
-      include_examples 'cannot access page'
+      include_examples 'redirected request'
     end
 
     it_behaves_like 'inaccessible by banned user' do
@@ -1064,7 +983,7 @@ describe ReservationsController, type: :controller do
         put :checkout, user_id: @user.id
       end
 
-      include_examples 'cannot access page'
+      include_examples 'redirected request'
     end
 
     it_behaves_like 'inaccessible by banned user' do
@@ -1306,7 +1225,7 @@ describe ReservationsController, type: :controller do
         put :checkin, user_id: @user.id
       end
 
-      include_examples 'cannot access page'
+      include_examples 'redirected request'
     end
 
     it_behaves_like 'inaccessible by banned user' do

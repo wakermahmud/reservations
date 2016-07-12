@@ -38,4 +38,15 @@ module EquipmentModelMocker
              end
     allow(cat).to receive(:equipment_models).and_return(models)
   end
+
+  def eq_model_with_item(model, item: nil)
+    item ||= mock_eq_item
+    allow(item).to receive(:equipment_model).and_return(model)
+    items = if model.equipment_items.is_a? Array
+              model.equipment_items << item
+            else
+              [item]
+            end
+    allow(model).to receive(:equipment_items).and_return(items)
+  end
 end
