@@ -112,14 +112,12 @@ describe EquipmentItemsController, type: :controller do
 
   describe 'POST create' do
     context 'with admin user' do
-      # FIXME: somehow the mock of current_user isn't working
-      before { mock_user_sign_in(mock_user(:admin)) }
+      before { mock_user_sign_in(mock_user(:admin, md_link: 'admin')) }
       let!(:model) { FactoryGirl.build_stubbed(:equipment_model) }
       let!(:item) { mock_eq_item(traits: [[:with_model, model: model]]) }
       context 'successful save' do
         before do
-          allow(EquipmentModel).to receive(:new).and_return(item)
-          allow(EquipmentModel).to receive(:last).and_return(item)
+          allow(EquipmentItem).to receive(:new).and_return(item)
           allow(item).to receive(:save).and_return(true)
           post :create, equipment_item: { id: 1 }
         end
@@ -132,7 +130,7 @@ describe EquipmentItemsController, type: :controller do
       end
       context 'unsuccessful save' do
         before do
-          allow(EquipmentModel).to receive(:new).and_return(item)
+          allow(EquipmentItem).to receive(:new).and_return(item)
           allow(item).to receive(:save).and_return(false)
           post :create, equipment_item: { id: 1 }
         end
@@ -214,8 +212,8 @@ describe EquipmentItemsController, type: :controller do
         end
         it { is_expected.to redirect_to('/referrer') }
         it 'deactivates the item' do
-          expect(item).to have_received(:deactivate).with(user: nil,
-                                                          reason: 'reason')
+          expect(item).to have_received(:deactivate)
+            .with(hash_including(:user, :reason))
         end
       end
       context 'with reservation' do
@@ -241,11 +239,10 @@ describe EquipmentItemsController, type: :controller do
   end
 
   describe 'PUT activate' do
-    # FIXME: somehow the mock of current_user isn't working
     context 'with admin user' do
-      let!(:item) { mock_eq_item(traits: [:findable]) }
+      let!(:item) { mock_eq_item(traits: [:findable], notes: '') }
       before do
-        mock_user_sign_in(mock_user(:admin))
+        mock_user_sign_in(mock_user(:admin, md_link: 'admin'))
         request.env['HTTP_REFERER'] = '/referrer'
         put :activate, id: item.id
       end
