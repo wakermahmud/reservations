@@ -31,7 +31,7 @@ module EquipmentItemMocker
     model ||= mock_eq_model(traits: [:findable])
     allow(item).to receive(:equipment_model).and_return(model)
     items = if model.equipment_items.is_a? Array
-               model.equipment_items << item
+              model.equipment_items << item
             else
               [item]
             end
