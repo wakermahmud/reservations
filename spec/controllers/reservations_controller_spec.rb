@@ -54,7 +54,6 @@ describe ReservationsController, type: :controller do
 
   describe '#index (GET /reservations/)' do
     # SMELLS:
-    #   - switch statement (in setting the reservation collections)
     #   - @filters 
     #   - long method
     #   - message chains
@@ -147,6 +146,47 @@ describe ReservationsController, type: :controller do
         before(:each) { get :new }
         it { expect(response).to redirect_to('where_i_came_from') }
         it { is_expected.to set_flash }
+      end
+
+      context 'with a non-empty cart' do
+        let!(:cart) do
+          instance_spy('Cart', items: { i: 1 }, reserver_id: user.id,
+                               start_date: Time.zone.today,
+                               due_date: Time.zone.today - 1.day)
+        end
+        context 'without errors' do
+          before(:each) do
+            allow(cart).to receive(:validate_all).and_return('')
+            get :new, nil, cart: cart
+          end
+          it { is_expected.to render_template(:new) }
+          it 'initializes a new reservation' do
+            expect(Reservation).to receive(:new)
+            get :new, nil, cart: cart
+          end
+          it 'assigns errors' do
+            expect(assigns(:errors)).to eq ''
+          end
+        end
+        context 'with errors' do
+          before do
+            allow(cart).to receive(:validate_all).and_return('error')
+            get :new, nil, cart: cart
+          end
+          it 'assigns errors' do
+            expect(assigns(:errors)).to eq 'error'
+          end
+          it { is_expected.to set_flash[:error] }
+        end
+      end
+    end
+
+    context 'can override errors' do
+      let!(:user) { FactoryGirl.build_stubbed(:admin) }
+      before(:each) do
+        allow(User).to receive(:find).with(user.id).and_return(user)
+        mock_user_sign_in(user)
+        request.env['HTTP_REFERER'] = 'where_i_came_from'
       end
 
       context 'with a non-empty cart' do
