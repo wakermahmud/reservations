@@ -5,20 +5,19 @@ describe ReservationsController, type: :controller do
   include ReservationMocker
   include EquipmentModelMocker
   include EquipmentItemMocker
-  #render_views
+  include UserMocker
 
-  before(:each) do
-    @ac = mock_app_config(**FactoryGirl.attributes_for(:app_config),
-                          disable_user_emails: false,
-                          override_on_create: false,
-                          override_at_checkout: false,
-                          res_exp_time: false)
-  end
+  AC_DEFAULTS = { disable_user_emails: false,
+                  override_on_create: false,
+                  override_at_checkout: false,
+                  res_exp_time: false,
+                  admin_email: 'admin@email.com' }.freeze
+
+  before(:each) { mock_app_config(AC_DEFAULTS) }
 
   shared_examples 'inaccessible by banned user' do
-    it_behaves_like 'redirected request' do
-      before { mock_user_sign_in(mock_user(:banned)) }
-    end
+    before { mock_user_sign_in(FactoryGirl.build_stubbed(:banned)) }
+    it_behaves_like 'redirected request'
   end
 
   describe '#update_index_dates (PUT)' do
@@ -121,7 +120,6 @@ describe ReservationsController, type: :controller do
       it_behaves_like 'filterable'
     end
 
-    ### TODO: this fails
     it_behaves_like 'inaccessible by banned user' do
       before { get :index }
     end
@@ -216,7 +214,7 @@ describe ReservationsController, type: :controller do
 
         context 'and user can override errors' do
           before(:each) do
-            allow(@ac).to receive(:override_on_create).and_return(true)
+            mock_app_config(AC_DEFAULTS.merge(override_on_create: true))
             sign_in @checkout_person
           end
 
@@ -244,7 +242,7 @@ describe ReservationsController, type: :controller do
         context 'and user cannot override errors' do
           # request would be filed
           before(:each) do
-            allow(@ac).to receive(:override_on_create).and_return(false)
+            mock_app_config(AC_DEFAULTS.merge(override_on_create: false))
             sign_in @checkout_person
           end
           it 'affects database' do
@@ -314,7 +312,7 @@ describe ReservationsController, type: :controller do
         context 'with notify_admin_on_create set' do
           before(:each) do
             ActionMailer::Base.deliveries.clear
-            allow(@ac).to receive(:notify_admin_on_create).and_return(true)
+            mock_app_config(AC_DEFAULTS.merge(notify_admin_on_create: true))
           end
 
           it 'cc-s the admin on the confirmation email' do
@@ -329,7 +327,7 @@ describe ReservationsController, type: :controller do
         context 'without notify_admin_on_create set' do
           before(:each) do
             ActionMailer::Base.deliveries.clear
-            allow(@ac).to receive(:notify_admin_on_create).and_return(false)
+            mock_app_config(AC_DEFAULTS.merge(notify_admin_on_create: false))
           end
 
           it 'cc-s the admin on the confirmation email' do
@@ -390,8 +388,8 @@ describe ReservationsController, type: :controller do
 
     context 'when accessed by checkout person disallowed by settings' do
       before(:each) do
+        mock_app_config(AC_DEFAULTS.merge(checkout_persons_can_edit: false))
         mock_user_sign_in(mock_user(:checkout_person))
-        allow(@ac).to receive(:checkout_persons_can_edit).and_return(false)
         get 'edit', id: 1
       end
       include_examples 'redirected request'
@@ -415,10 +413,10 @@ describe ReservationsController, type: :controller do
 
     context 'when accessed by checkout person allowed by settings' do
       before(:each) do
-        allow(@ac).to receive(:checkout_persons_can_edit).and_return(true)
+        mock_app_config(AC_DEFAULTS.merge(checkout_persons_can_edit: true))
         mock_user_sign_in(mock_user(:checkout_person))
       end
-      include_examples 'can access edit page'
+      it_behaves_like 'can access edit page'
     end
 
     context 'when accessed by admin' do
@@ -444,7 +442,16 @@ describe ReservationsController, type: :controller do
     # - params[:equipment_item] = id of equipment item or nil
     # - params[:reservation] with :start_date, :due_date, :reserver_id, :notes
 
-    ## Unhappy paths due to authorization
+    before(:all) do
+      @user = FactoryGirl.create(:user)
+      @checkout_person = FactoryGirl.create(:checkout_person)
+      @admin = FactoryGirl.create(:admin)
+    end
+    after(:all) { User.destroy_all }
+    before(:each) do
+      @reservation = FactoryGirl.create(:valid_reservation, reserver: @user)
+    end
+
     it_behaves_like 'inaccessible by banned user' do
       before { put :update }
     end
@@ -460,7 +467,7 @@ describe ReservationsController, type: :controller do
     context 'when accessed by checkout person disallowed by settings' do
       before(:each) do
         sign_in @checkout_person
-        allow(@ac).to receive(:checkout_persons_can_edit).and_return(false)
+        mock_app_config(AC_DEFAULTS.merge(checkout_persons_can_edit: false))
         put 'update',
             id: @reservation.id,
             reservation: FactoryGirl.attributes_for(:reservation)
@@ -628,120 +635,77 @@ describe ReservationsController, type: :controller do
 
     context 'when accessed by checkout person allowed by settings' do
       before(:each) do
+        mock_app_config(AC_DEFAULTS.merge(checkout_persons_can_edit: true))
         sign_in @checkout_person
-        allow(@ac).to receive(:checkout_persons_can_edit).and_return(true)
       end
       include_examples 'can access update page'
     end
 
     context 'when accessed by admin' do
       before(:each) do
+        mock_app_config(AC_DEFAULTS.merge(checkout_persons_can_edit: false))
         sign_in @admin
-        allow(@ac).to receive(:checkout_persons_can_edit).and_return(false)
       end
       include_examples 'can access update page'
     end
   end
 
   describe '#destroy (DELETE /reservations/:id)' do
+    # SMELL: this mostly tests permissions
     # Special access:
     # - checkout persons, if checked_out is nil
     # - users, if checked_out is nil and it's their reservation
     # Functionality:
     # - destroy reservation, set flash[:notice], redirect to reservations_url
 
-    # Requires a block to be passed which defines let!(:reservation)
+    ADMIN_ROLES = [:admin, :checkout_person]
+
     shared_examples 'can destroy reservation' do
+      before { delete :destroy, id: res.id }
+      it { is_expected.to redirect_to(reservations_url) }
+      it { is_expected.to set_flash[:notice] }
       it 'deletes the reservation' do
-        expect { delete :destroy, id: reservation.id }.to\
-          change { Reservation.count }
-      end
-
-      it 'redirects to reservations_url' do
-        delete :destroy, id: reservation.id
-        expect(response).to redirect_to(reservations_url)
-      end
-
-      it 'sets the flash' do
-        delete :destroy, id: reservation.id
-        expect(flash[:notice]).not_to be_nil
+        expect(res).to have_received(:destroy)
       end
     end
 
-    # Requires a block to be passed which defines let(:reservation)
     shared_examples 'cannot destroy reservation' do
-      before(:each) { delete :destroy, id: reservation.id }
+      before { delete :destroy, id: res.id }
       include_examples 'redirected request'
     end
 
-    context 'when accessed by admin' do
-      before(:each) do
-        sign_in @admin
-      end
-
-      include_examples 'can destroy reservation' do
-        let!(:reservation) do
-          FactoryGirl.create(:valid_reservation, reserver: @user)
-        end
-      end
-    end
-
-    context 'when accessed by checkout person' do
-      before(:each) do
-        sign_in @checkout_person
-      end
-
-      context 'and the reservation is checked out' do
-        include_examples 'cannot destroy reservation' do
-          let(:reservation) do
-            FactoryGirl.create(:checked_out_reservation, reserver: @user)
-          end
-        end
-      end
-
-      context 'and the reservation is not checked out' do
-        include_examples 'can destroy reservation' do
-          let!(:reservation) do
-            FactoryGirl.create(:valid_reservation, reserver: @user)
-          end
-        end
-      end
+    ADMIN_ROLES.each do |role|
+      before { mock_user_sign_in(mock_user(role)) }
+      let!(:res) { mock_reservation(traits: [:findable]) }
+      it_behaves_like 'can destroy reservation'
     end
 
     context 'when accessed by patron' do
-      before(:each) do
-        sign_in @user
-      end
+      let!(:user) { mock_user }
+      before { mock_user_sign_in(user) }
 
       context 'and the reservation is their own' do
         context 'and it is checked out' do
-          include_examples 'cannot destroy reservation' do
-            let(:reservation) do
-              FactoryGirl.create(:checked_out_reservation, reserver: @user)
+            let!(:res) do
+              mock_reservation(traits: [:findable], reserver: user,
+                               status: 'checked_out')
             end
-          end
+          it_behaves_like 'cannot destroy reservation'
         end
-
         context 'and it is not checked out' do
-          include_examples 'can destroy reservation' do
-            let!(:reservation) do
-              FactoryGirl.create(:valid_reservation, reserver: @user)
-            end
-          end
+          let!(:res) { mock_reservation(traits: [:findable], reserver: user) }
+          it_behaves_like 'can destroy reservation'
         end
       end
-
       context 'and the reservation is not their own' do
-        include_examples 'cannot destroy reservation' do
-          let(:reservation) do
-            FactoryGirl.create(:valid_reservation, reserver: @checkout_person)
-          end
-        end
+        let!(:res) { mock_reservation(traits: [:findable]) }
+        it_behaves_like 'cannot destroy reservation'
       end
     end
 
     it_behaves_like 'inaccessible by banned user' do
-      before { delete :destroy, id: @reservation.id }
+      let!(:res) { mock_reservation(traits: [:findable]) }
+      before { delete :destroy, id: res.id }
     end
   end
 
@@ -752,65 +716,61 @@ describe ReservationsController, type: :controller do
     # - renders :manage
 
     shared_examples 'can access #manage' do
-      before(:each) { get :manage, user_id: @user.id }
+      let!(:user) { mock_user(traits: [:findable]) }
+      before(:each) do 
+        allow(user).to receive(:due_for_checkout)
+          .and_return(instance_spy('ActiveRecord::Relation'))
+        allow(user).to receive(:due_for_checkin)
+          .and_return(instance_spy('ActiveRecord::Relation'))
+        get :manage, user_id: user.id 
+      end
       it { expect(response).to be_success }
       it { is_expected.to render_template(:manage) }
-
       it 'assigns @user correctly' do
-        expect(assigns(:user)).to eq(@user)
+        expect(assigns(:user)).to eq(user)
       end
-
       it 'assigns @check_out_set correctly' do
-        expect(assigns(:check_out_set)).to eq(@user.due_for_checkout)
+        expect(assigns(:check_out_set)).to eq(user.due_for_checkout)
       end
-
       it 'assigns @check_in_set correctly' do
-        expect(assigns(:check_in_set)).to eq(@user.due_for_checkin)
+        expect(assigns(:check_in_set)).to eq(user.due_for_checkin)
       end
     end
 
     context 'when accessed by admin' do
-      before(:each) do
-        sign_in @admin
-      end
-
+      before(:each) { mock_user_sign_in(mock_user(:admin)) }
       include_examples 'can access #manage'
     end
 
     context 'when accessed by checkout person' do
-      before(:each) do
-        sign_in @checkout_person
-      end
-
+      before(:each) { mock_user_sign_in(mock_user(:checkout_person)) }
       include_examples 'can access #manage'
     end
 
     context 'when accessed by patron' do
       before(:each) do
-        sign_in @user
-        get :manage, user_id: @user.id
+        user = mock_user
+        mock_user_sign_in(user)
+        get :manage, user_id: user.id
       end
-
       include_examples 'redirected request'
-    end
-
-    context 'with banned reserver' do
-      before(:each) do
-        sign_in @admin
-        get :manage, user_id: @banned.id
-      end
-      include_examples 'can access #manage'
     end
   end
 
   describe '#current (GET /reservations/current/:user_id)' do
-    # Access: admins and checkout persons
-    # Functionality:
-    # - assigns @user, @user_overdue_reservations_set,
-    #    @user_checked_out_today_reservations_set,
-    #    @user_checked_out_previous_reservations_set,
-    #    @user_reserved_reservations_set
-    # - renders :current_reservations
+    # not particularily messy but the method is written in a way that
+    # makes mocking + stubbing difficult
+    # SMELL: feature envy: everything depends on @user
+
+    before(:all) do
+      @user = FactoryGirl.create(:user)
+      @checkout_person = FactoryGirl.create(:checkout_person)
+      @admin = FactoryGirl.create(:admin)
+      @banned = FactoryGirl.create(:banned)
+    end
+    after(:all) do
+      User.destroy_all
+    end
 
     shared_examples 'can access #current' do
       before { get :current, user_id: @user.id }
@@ -912,6 +872,22 @@ describe ReservationsController, type: :controller do
     # - sets reservation status to 'checked_out'
 
     # Note: Many of these can be cross-applied to #checkin as well
+
+    before(:all) do
+      @user = FactoryGirl.create(:user)
+      @checkout_person = FactoryGirl.create(:checkout_person)
+      @admin = FactoryGirl.create(:admin)
+      @banned = FactoryGirl.create(:banned)
+    end
+    
+    after(:all) do
+      User.destroy_all
+    end
+
+    before(:each) do
+      sign_in @user
+      @reservation = FactoryGirl.create(:valid_reservation, reserver: @user)
+    end
 
     shared_examples 'has successful checkout' do
       before(:each) do
@@ -1165,6 +1141,22 @@ describe ReservationsController, type: :controller do
     #     redirects away
     # - renders :receipt template
 
+    before(:all) do
+      @user = FactoryGirl.create(:user)
+      @checkout_person = FactoryGirl.create(:checkout_person)
+      @admin = FactoryGirl.create(:admin)
+      @banned = FactoryGirl.create(:banned)
+    end
+    
+    after(:all) do
+      User.destroy_all
+    end
+
+    before(:each) do
+      sign_in @user
+      @reservation = FactoryGirl.create(:valid_reservation, reserver: @user)
+    end
+
     shared_examples 'has successful checkin' do
       before(:each) do
         @reservation =
@@ -1295,80 +1287,61 @@ describe ReservationsController, type: :controller do
   end
 
   describe '#renew (PUT /reservations/:id/renew)' do
-    # Access: Admins, checkout persons, users if it's their own reservation
-    # Functionality:
-    # - sets @reservation
-    # - add @reservation.max_renewal_length_available.days to due_date
-    # - add 1 to @reservation.times_renewed
-    # - redirects to @reservation if you can't save
-    # - redirects to root_path if you can save
-    #     (is saving determined by equipment_model.max_renewal_times /
-    #      max_renewal_length?)
-
-    # TODO: Test circumstances under which renewal doesn't/shouldn't work
-
+    # SMELL: this mostly tests permissions
     shared_examples 'can renew reservation' do
       before(:each) do
-        @reservation =
-          FactoryGirl.create(:checked_out_reservation, reserver: @user)
-        put :renew, id: @reservation.id
+        allow(Reservation).to receive(:find).with(res.id.to_s).and_return(res)
+        allow(res).to receive(:renew).and_return(nil)
+        put :renew, id: res.id
       end
-
-      it { is_expected.to redirect_to(reservation_path(@reservation)) }
-
-      it 'should extend due_date' do
-        expect { @reservation.reload }.to change { @reservation.due_date }
-      end
+      it { is_expected.to redirect_to(reservation_path(res)) }
+      it { is_expected.to set_flash[:notice] }
     end
 
     context 'when accessed by admin' do
-      before(:each) do
-        sign_in @admin
-      end
-
+      let!(:res) { FactoryGirl.build_stubbed(:valid_reservation) }
+      before { mock_user_sign_in(mock_user(:admin)) }
       include_examples 'can renew reservation'
+      context 'cannot renew' do
+        before do
+          allow(Reservation).to receive(:find).with(res.id.to_s).and_return(res)
+          allow(res).to receive(:renew).and_return('error')
+          put :renew, id: res.id
+        end
+        it { is_expected.to redirect_to(reservation_path(res)) }
+        it { is_expected.to set_flash[:error] }
+      end
     end
 
     context 'when accessed by checkout person' do
-      before(:each) do
-        sign_in @checkout_person
-      end
-
+      let!(:res) { FactoryGirl.build_stubbed(:valid_reservation) }
+      before { mock_user_sign_in(mock_user(:checkout_person)) }
       include_examples 'can renew reservation'
     end
 
     context 'when accessed by patron' do
-      before(:each) do
-        sign_in @user
+      let!(:user) { FactoryGirl.build_stubbed(:user) }
+      before { mock_user_sign_in user }
+      context 'own reservation' do
+        let!(:res) do
+          FactoryGirl.build_stubbed(:valid_reservation, reserver: user) 
+        end
+        include_examples 'can renew reservation'
       end
-
-      include_examples 'can renew reservation'
-
       context 'trying to renew someone elses reservation' do
-        before do
-          @other_res = FactoryGirl.create(:checked_out_reservation)
-          put :renew, id: @other_res.id
-        end
+        let!(:res) { FactoryGirl.build_stubbed(:valid_reservation) }
+        before { put :renew, id: res.id }
         it { expect(response).to be_redirect }
-        it do
-          expect { @other_res.reload }.not_to change { @other_res.checked_in }
-        end
       end
     end
 
+    # FIXME: fails
     it_behaves_like 'inaccessible by banned user' do
-      before { put :renew, id: @reservation.id }
-    end
-
-    context 'when reserver is banned' do
-      before(:each) do
-        @reservation.update_attribute(:reserver_id, @banned.id)
-        sign_in @admin
-        put :renew, id: @reservation.id
+      let!(:res) { FactoryGirl.build_stubbed(:valid_reservation) }
+      before do
+        allow(Reservation).to receive(:find).with(res.id.to_s).and_return(res)
+        put :renew, id: res.id
       end
-
-      it { expect { @reservation.reload }.not_to change { @reservation } }
-      it { is_expected.to set_flash }
     end
   end
 
@@ -1381,7 +1354,21 @@ describe ReservationsController, type: :controller do
     # - adds archival comment to note
     # - redirects to @reservation
 
-    # TODO: ??
+    before(:all) do
+      @user = FactoryGirl.create(:user)
+      @checkout_person = FactoryGirl.create(:checkout_person)
+      @admin = FactoryGirl.create(:admin)
+      @banned = FactoryGirl.create(:banned)
+    end
+    
+    after(:all) do
+      User.destroy_all
+    end
+
+    before(:each) do
+      sign_in @user
+      @reservation = FactoryGirl.create(:valid_reservation, reserver: @user)
+    end
 
     shared_examples 'cannot archive reservation' do
       before do
@@ -1444,7 +1431,7 @@ describe ReservationsController, type: :controller do
 
         context 'when auto-deactivate is enabled' do
           before(:each) do
-            allow(@ac).to receive(:autodeactivate_on_archive).and_return(true)
+            mock_app_config(AC_DEFAULTS.merge(autodeactivate_on_archive: true))
             put :archive, id: @reservation.id, archive_note: 'Because I can'
           end
 
@@ -1496,6 +1483,7 @@ describe ReservationsController, type: :controller do
 
     it_behaves_like 'inaccessible by banned user' do
       before do
+        allow(User).to receive(:find).with(@user.id).and_return(@user)
         @reservation =
           FactoryGirl.create(:checked_out_reservation, reserver: @user)
         put :archive, id: @reservation.id
@@ -1504,57 +1492,62 @@ describe ReservationsController, type: :controller do
   end
 
   describe '#send_receipt (GET /reservations/:id/send_receipt)' do
-    before(:each) do
-      sign_in @checkout_person
-    end
+    before { mock_user_sign_in(mock_user(:checkout_person)) }
+    let!(:res) { FactoryGirl.build_stubbed(:valid_reservation) }
 
     context 'successfully emails' do
       before do
-        @reservation.update_attributes(
-          FactoryGirl.attributes_for(:checked_out_reservation)
-        )
-        get :send_receipt, id: @reservation.id
+        allow(Reservation).to receive(:find).with(res.id.to_s).and_return(res)
+        allow(UserMailer).to \
+          receive_message_chain(:reservation_status_update, :deliver_now)
+          .and_return(true)
+        get :send_receipt, id: res.id
       end
-      it { is_expected.to redirect_to(@reservation) }
-      it { should set_flash[:notice] }
+      it { is_expected.to redirect_to(res) }
+      it { is_expected.to set_flash[:notice] }
     end
 
     context 'fails to send email' do
       before do
+        allow(Reservation).to receive(:find).with(res.id.to_s).and_return(res)
         allow(UserMailer).to \
-          receive_message_chain('reservation_status_update.deliver_now')
+          receive_message_chain(:reservation_status_update, :deliver_now)
           .and_return(false)
-        get :send_receipt, id: @reservation.id
+        get :send_receipt, id: res.id
       end
-      it { is_expected.to redirect_to(@reservation) }
-      it { should set_flash[:error] }
+      it { is_expected.to redirect_to(res) }
+      it { is_expected.to set_flash[:error] }
     end
   end
 
   describe '#review GET' do
+    let!(:res) { mock_reservation(traits: [:findable]) }
     context 'as admin' do
       before do
-        sign_in @admin
-        get :review, id: @reservation.id
+        mock_user_sign_in(mock_user(:admin))
       end
       it 'should assign all current requests except itself' do
-        expect(assigns(:all_current_requests_by_user)).to\
-          eq @reservation.reserver.reservations.requested
-                         .reject { |r| r.id == @reservation.id }
+        other = mock_reservation(traits: [:findable])
+        full = [res, other]
+        expect(res).to \
+          receive_message_chain(:reserver, :reservations, :requested)
+          .and_return(full)
+        get :review, id: res.id
+        expect(assigns(:all_current_requests_by_user)).to eq([other])
       end
       it 'should assign errors' do
-        expect(assigns(:errors)).to eq assigns(:reservation).validate
-      end
-    end
-    context 'as checkout' do
-      before do
-        sign_in @checkout_person
-        get :review, id: @reservation.id
+        allow(res).to receive(:validate).and_return('errors')
+        get :review, id: res.id
+        expect(assigns(:errors)).to eq('errors')
       end
     end
   end
 
   describe '#approve_request PUT' do
+    # SMELL: this doesn't belong in the controller
+    before(:all) { @admin = FactoryGirl.create(:admin) }
+    after(:all) { User.destroy_all }
+
     before do
       sign_in @admin
       @requested = FactoryGirl.create(:request)
@@ -1575,6 +1568,10 @@ describe ReservationsController, type: :controller do
   end
 
   describe '#deny_request PUT' do
+    # SMELL: this doesn't belong in the controller
+    before(:all) { @admin = FactoryGirl.create(:admin) }
+    after(:all) { User.destroy_all }
+
     before do
       sign_in @admin
       @requested = FactoryGirl.create(:request)
