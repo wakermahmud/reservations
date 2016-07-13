@@ -23,9 +23,7 @@ FactoryGirl.define do
       start_date { Time.zone.today }
       due_date { Time.zone.today + 1.day }
       status { 'requested' }
-      after(:build) do |res|
-        res.flag(:request)
-      end
+      flags { 1 | Reservation::FLAGS[:request] }
     end
 
     trait :reserved do
