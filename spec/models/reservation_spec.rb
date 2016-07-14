@@ -78,6 +78,69 @@ describe Reservation, type: :model do
     it { is_expected.to validate_presence_of(:equipment_model) }
   end
 
+  describe 'custom validations' do
+    it 'is invalid when start date after due date' do
+      res = FactoryGirl.build(:valid_reservation,
+                              start_date: Time.zone.today + 3.days,
+                              due_date: Time.zone.today)
+      expect(res.start_date_before_due_date).not_to be_empty
+      expect(res.valid?).to be_falsey
+    end
+    it 'is invalid when it has an item of a different model' do
+      item = FactoryGirl.create(:equipment_item)
+      model = FactoryGirl.create(:equipment_model)
+      res = FactoryGirl.build(:valid_reservation,
+                              equipment_model: model,
+                              equipment_item: item)
+      expect(res.matched_item_and_model).not_to be_empty
+      expect(res.valid?).to be_falsey
+    end
+    describe 'availability validation' do
+      it 'always passes checked in reservations' do
+        model = FactoryGirl.create(:equipment_model)
+        res = FactoryGirl.build(:checked_in_reservation,
+                                equipment_model: model)
+        allow(model).to receive(:num_available).and_return(0)
+        expect(res.available).to be_nil
+      end
+      it 'always passes reservations with due dates in the past' do
+        model = FactoryGirl.create(:equipment_model)
+        res = FactoryGirl.build(:valid_reservation,
+                                equipment_model: model,
+                                due_date: Time.zone.today - 1.day)
+        allow(model).to receive(:num_available).and_return(0)
+        expect(res.available).to be_nil
+      end
+      it 'is invalid when there are availability issues' do
+        model = FactoryGirl.create(:equipment_model)
+        res = FactoryGirl.build(:valid_reservation,
+                                equipment_model: model)
+        allow(model).to receive(:num_available).and_return(0)
+        expect(res.available).not_to be_empty
+        expect(res.valid?).to be_falsey
+      end
+    end
+    it 'is invalid if the start date is in the past' do
+      res = FactoryGirl.build(:valid_reservation,
+                              start_date: Time.zone.today - 1.day)
+      expect(res.not_in_past).not_to be_empty
+      expect(res.valid?).to be_falsey
+    end
+    it 'is invalid if the due date is in the past' do
+      res = FactoryGirl.build(:valid_reservation,
+                              due_date: Time.zone.today - 1.day)
+      expect(res.not_in_past).not_to be_empty
+      expect(res.valid?).to be_falsey
+    end
+    it 'is invalid if the reserver is banned' do
+      user = FactoryGirl.create(:banned)
+      res = FactoryGirl.build(:valid_reservation,
+                              reserver: user)
+      expect(res.check_banned).not_to be_empty
+      expect(res.valid?).to be_falsey
+    end
+  end
+
   describe '#approved?' do
     it 'returns false if requested' do
       res = FactoryGirl.build_stubbed(:request)
