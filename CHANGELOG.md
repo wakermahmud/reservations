@@ -13,6 +13,7 @@
 
 
 ### Changed
+* Refactor EquipmentModel model spec ([#1600](https://github.com/YaleSTC/reservations/issues/1600)).
 
 ## v6.1.0 - 2016-06-01
 ### Fixed
