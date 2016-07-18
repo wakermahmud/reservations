@@ -126,33 +126,6 @@ describe Reservation, type: :model do
       expect(res.check_banned).not_to be_empty
       expect(res.valid?).to be_falsey
     end
-    #shared_examples 'valid status change' do |factory, old, new|
-    #  it "from #{old} to #{new}" do
-    #    res = FactoryGirl.create(factory, status: old)
-    #    res.status = new
-    #    expect(res.save).to be_truthy
-    #  end
-    #end
-    #shared_examples 'invalid status change' do |factory, old, new|
-    #  it "from #{old} to #{new}" do
-    #    res = FactoryGirl.create(factory, status: old)
-    #    res.status = new
-    #    expect(res.save).to be_falsey
-    #  end
-    #end
-    #VALID_CHANGES = [[:request, 'requested', 'denied'],
-    #                 [:request, 'reserved', 'requested'],
-    #                 [:valid_reservation, 'requested', 'reserved'],
-    #                 [:missed_reservation, 'reserved', 'missed'],
-    #                 [:checked_out_reservation, 'reserved', 'checked_out'],
-    #                 [:checked_in_reservation, 'checked_out', 'returned']]
-    #VALID_CHANGES.each do |factory, old, new|
-    #  it_behaves_like 'valid status change', factory, old, new
-    #end
-    #INVALID_CHANGES = [[:valid_reservation, 'reserved', 'requested']]
-    #INVALID_CHANGES.each do |factory, old, new|
-    #  it_behaves_like 'invalid status change', factory, old, new
-    #end
   end
 
   context 'scopes' do
@@ -680,6 +653,9 @@ describe Reservation, type: :model do
         ActionMailer::Base.perform_deliveries = false
         mock_app_config(admin_email: 'admin@email.com',
                         disable_user_emails: false)
+      end
+      after do
+        ActionMailer::Base.perform_deliveries = true
       end
       it 'sends the admins an email' do
         expect(AdminMailer).to \
