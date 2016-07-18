@@ -452,6 +452,7 @@ describe ReservationsController, type: :controller do
     end
 
     context 'when accessed by checkout person allowed by settings' do
+      # FIXME: permissions fail before it can hit controller action
       before(:each) do
         mock_app_config(AC_DEFAULTS.merge(checkout_persons_can_edit: true))
         mock_user_sign_in(mock_user(:checkout_person))
