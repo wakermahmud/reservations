@@ -2,159 +2,149 @@ require 'spec_helper'
 require 'concerns/linkable_spec.rb'
 
 describe EquipmentItem, type: :model do
-  context 'validations' do
-    before(:each) do
-      @item = FactoryGirl.build(:equipment_item)
-    end
+  include EquipmentItemMocker
+  include UserMocker
+  include ActiveSupport::Testing::TimeHelpers
 
-    it 'has a working factory' do
-      expect(@item.save).to be_truthy
-    end
+  it_behaves_like 'linkable'
 
+  describe 'basic validations' do
+    subject(:item) { FactoryGirl.build(:equipment_item) }
     it { is_expected.to validate_presence_of(:name) }
     it { is_expected.to validate_presence_of(:equipment_model) }
+  end
 
-    # 2015-11-09: we can't use the shoulda matchers test for scoped uniqueness
-    # due to the lack of a default value for notes - we could potentially
-    # rework our database schema to add a default value but it seems
-    # unnecessary at the moment
-    it 'ensures unique serials scoped to equipment model if it exists' do
-      em1 = FactoryGirl.create(:equipment_model)
-      em2 = FactoryGirl.create(:equipment_model)
-      FactoryGirl.create(:equipment_item, equipment_model: em1, serial: 'a')
-      em1_a2 = FactoryGirl.build(:equipment_item, equipment_model: em1,
-                                                  serial: 'a')
-      em1_nil1 = FactoryGirl.build(:equipment_item, equipment_model: em1,
-                                                    serial: nil)
-      em1_nil2 = FactoryGirl.build(:equipment_item, equipment_model: em1,
-                                                    serial: nil)
-      em1_blank1 = FactoryGirl.build(:equipment_item, equipment_model: em1,
-                                                      serial: '')
-      em1_blank2 = FactoryGirl.build(:equipment_item, equipment_model: em1,
-                                                      serial: '')
-      em2_a = FactoryGirl.build(:equipment_item, equipment_model: em2,
-                                                 serial: 'a')
-
-      expect(em1_a2.valid?).to be_falsey
-      expect(em1_nil1.save!).to be_truthy
-      expect(em1_nil2.valid?).to be_truthy
-      expect(em1_blank1.save!).to be_truthy
-      expect(em1_blank2.valid?).to be_truthy
-      expect(em2_a.valid?).to be_truthy
+  describe 'serial' do
+    it 'can be blank' do
+      item = FactoryGirl.build_stubbed(:equipment_item, serial: '')
+      expect(item.valid?).to be_truthy
     end
+    it 'can be nil' do
+      item = FactoryGirl.build_stubbed(:equipment_item, serial: nil)
+      expect(item.valid?).to be_truthy
+    end
+    it 'cannot be the same as another item of the same model' do
+      model = FactoryGirl.create(:equipment_model)
+      FactoryGirl.create(:equipment_item, equipment_model: model, serial: 'a')
+      item = FactoryGirl.build(:equipment_item, equipment_model: model,
+                                                serial: 'a')
+      expect(item.valid?).to be_falsey
+    end
+    it 'can be the same as another item of a different model' do
+      FactoryGirl.create(:equipment_item, serial: 'a')
+      item = FactoryGirl.build(:equipment_item, serial: 'a')
+      expect(item.valid?).to be_truthy
+    end
+  end
 
+  it 'saves an empty string value as nil for deleted_at field' do
     # this test passes even without the nilify_blanks call in the model, maybe
     # delete the call?
-    it 'saves an empty string value as nil for deleted_at field' do
-      @item.deleted_at = '   '
-      @item.save
-      expect(@item.deleted_at).to eq(nil)
+    item = FactoryGirl.build(:equipment_item)
+    item.deleted_at = '   '
+    item.save
+    expect(item.deleted_at).to eq(nil)
+  end
+
+  describe '#active' do
+    it 'returns active equipment items' do
+      active = FactoryGirl.create(:equipment_item)
+      FactoryGirl.create(:deactivated)
+      expect(described_class.active).to match_array([active])
     end
   end
 
-  describe '.active' do
-    before(:each) do
-      @active = FactoryGirl.create(:equipment_item)
-      @deactivated = FactoryGirl.create(:deactivated)
-    end
-
-    it 'Should return all active equipment items' do
-      expect(EquipmentItem.active).to include(@active)
-    end
-
-    it 'Should not return inactive equipment items' do
-      expect(EquipmentItem.active).not_to include(@deactivated)
+  describe '#for_eq_model' do
+    it 'counts the number of items for the given model' do
+      items = Array.new(2) { |i| mock_eq_item(equipment_model_id: i) }
+      expect(described_class.for_eq_model(0, items)).to eq(1)
     end
   end
 
-  describe '.status' do
-    it "returns 'Deactivated' if the item has a value for deleted_at" do
-      @item = FactoryGirl.create(:equipment_item,
-                                 deleted_at: Time.zone.today)
-      expect(@item.status).to eq('Deactivated')
+  describe '#status' do
+    it "returns 'Deactivated' when deleted_at is set" do
+      item = FactoryGirl.build_stubbed(:equipment_item,
+                                       deleted_at: Time.zone.today)
+      expect(item.status).to eq('Deactivated')
     end
-    it "returns 'available' if the item is active and not currently "\
-      'checked out' do
-      @item = FactoryGirl.create(:equipment_item)
-      expect(@item.status).to eq('available')
-      @reservation = FactoryGirl.create(:valid_reservation)
-      @reserved_item =
-        EquipmentItem
-        .find_by_equipment_model_id(@reservation.equipment_model.id)
-      expect(@reserved_item.status).to eq('available')
+    it "returns 'available' when active and not currently checked out" do
+      item = FactoryGirl.build_stubbed(:equipment_item)
+      expect(item.status).to eq('available')
     end
-    it 'returns a description of the reservation that it is currently '\
-      'associated with if it is active and checked out' do
-      @reservation = FactoryGirl.create(:checked_out_reservation)
-      @checked_out_item = @reservation.equipment_item
-      expect(@checked_out_item.status).to\
-        eq("checked out by #{@reservation.reserver.name} through "\
-          "#{@reservation.due_date.strftime('%b %d')}")
+    it 'includes reservation information when checked out' do
+      res = FactoryGirl.create(:checked_out_reservation)
+      item = res.equipment_item
+      expect(item.status).to include('checked out by')
+    end
+    it 'includes deactivation reason if it is set' do
+      reason = 'because i can'
+      item = FactoryGirl.build_stubbed(:equipment_item, 
+                                       deleted_at: Time.zone.today,
+                                       deactivation_reason: reason)
+      expect(item.status).to include(reason)
     end
   end
 
-  describe '.current_reservation' do
-    it 'returns nil if the equipment item does not have an associated '\
-      'reservation' do
-      @item = FactoryGirl.create(:equipment_item)
-      expect(@item.current_reservation).to be_nil
+  describe '#current_reservation' do
+    it 'returns nil if no associated reservation' do
+      item = FactoryGirl.build_stubbed(:equipment_item)
+      expect(item.current_reservation).to be_nil
     end
-    it 'returns the reservation item currently holding this '\
-      'equipment_item if there is one that does' do
-      @reservation = FactoryGirl.create(:checked_out_reservation)
-      @reserved_item = @reservation.equipment_item
-      expect(@reserved_item.current_reservation).to eq(@reservation)
+    it 'returns the reservation that currently has the item checked out' do
+      res = FactoryGirl.create(:checked_out_reservation)
+      item = res.equipment_item
+      expect(item.current_reservation).to eq(res)
     end
   end
 
-  describe '.available?' do
-    it 'returns true if the equipment item is not checked out' do
-      @item = FactoryGirl.create(:equipment_item)
-      expect(@item.available?).to be_truthy
+  describe '#available?' do
+    it 'returns true when the status is available' do
+      item = FactoryGirl.create(:equipment_item)
+      expect(item.available?).to be_truthy
     end
-    it 'returns false if the equipment item is currently checked out' do
-      @reservation = FactoryGirl.create(:checked_out_reservation)
-      @checked_out_item = @reservation.equipment_item
-      expect(@checked_out_item.available?).to be_falsey
+    it 'returns false if when the status is not available' do
+      res = FactoryGirl.create(:checked_out_reservation)
+      item = res.equipment_item
+      expect(item.available?).to be_falsey
     end
   end
 
   describe '#deactivate' do
+    let!(:user) { mock_user(:admin, md_link: 'md_link') }
+    let!(:item) { FactoryGirl.build_stubbed(:equipment_item) }
     before do
-      @ei = FactoryGirl.build(:equipment_item)
-      @user = FactoryGirl.build(:admin)
+      allow(item).to receive(:destroy)
+      allow(item).to receive(:save!)
     end
-
     context 'with user and notes' do
-      before { @ei.deactivate(user: @user, reason: 'reason') }
-
-      it 'prepends to the notes' do
-        expect(@ei.notes).to include('reason')
-        expect(@ei.notes).to include(@user.md_link)
+      it 'saves the updated attributes' do
+        item.deactivate(user: user, reason: 'reason')
+        expect(item).to have_received(:save!)
       end
-      it 'sets deleted_at' do
-        expect(@ei.deleted_at).not_to be_nil
+      it 'destroys the item' do
+        item.deactivate(user: user, reason: 'reason')
+        expect(item).to have_received(:destroy)
+      end
+      it 'prepends to the notes' do
+        item.deactivate(user: user, reason: 'reason')
+        expect(item.notes).to include('reason')
+        expect(item.notes).to include(user.md_link)
       end
     end
-
     context 'without user' do
       it 'does nothing' do
-        expect { @ei.deactivate(reason: 'reason') }.not_to change { @ei }
+        expect { item.deactivate(reason: 'reason') }.not_to change { item }
       end
     end
-
     context 'without notes' do
       it 'does nothing' do
-        expect { @ei.deactivate(user: @user) }.not_to change { @ei }
+        expect { item.deactivate(user: user) }.not_to change { item }
       end
     end
-
     context 'without parameters' do
       it 'does nothing' do
-        expect { @ei.deactivate }.not_to change { @ei }
+        expect { item.deactivate }.not_to change { item }
       end
     end
   end
-
-  it_behaves_like 'linkable'
 end
