@@ -141,7 +141,7 @@ class Reservation < ActiveRecord::Base
   def flagged?(flag)
     # checks to see if the given flag is set
     # you must pass the symbol for the flag
-    return unless FLAGS.has_key? flag
+    return unless FLAGS.key? flag
     flags & FLAGS[flag] > 0
   end
 
@@ -157,12 +157,12 @@ class Reservation < ActiveRecord::Base
   end
 
   def flag(flag)
-    return unless FLAGS.has_key? flag
+    return unless FLAGS.key? flag
     self.flags |= FLAGS[flag]
   end
 
   def unflag(flag)
-    return unless FLAGS.has_key? flag
+    return unless FLAGS.key? flag
     return unless flagged? flag
     self.flags -= FLAGS[flag]
   end
