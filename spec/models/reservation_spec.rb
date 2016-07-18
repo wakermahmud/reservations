@@ -11,24 +11,24 @@ describe Reservation, type: :model do
 
   describe '#number_for' do
     it 'counts the number that overlap with today' do
-      source =  Array.new(2) { mock_reservation }
+      source = Array.new(2) { mock_reservation }
       source.each do |r|
         allow(r).to receive(:overlaps_with).with(Time.zone.today)
-        .and_return(true)
+          .and_return(true)
       end
-      expect(Reservation.number_for(source)).to eq(2)
+      expect(described_class.number_for(source)).to eq(2)
     end
     it 'counts the number that overlap with a given day' do
       date = Time.zone.today + 2.days
-      source =  Array.new(2) { mock_reservation }
+      source = Array.new(2) { mock_reservation }
       allow(source.first).to receive(:overlaps_with).with(date).and_return(true)
       allow(source.last).to receive(:overlaps_with).with(date).and_return(false)
-      expect(Reservation.number_for(source, date: date)).to eq(1)
+      expect(described_class.number_for(source, date: date)).to eq(1)
     end
     it 'counts according to attribute hash' do
       attrs = { overdue: false }
       res = mock_reservation
-      Reservation.number_for([res], **attrs)
+      described_class.number_for([res], **attrs)
       expect(res).to have_received(:attrs?).with(**attrs)
     end
   end
@@ -38,30 +38,31 @@ describe Reservation, type: :model do
       date_range = Time.zone.today..(Time.zone.today + 2.days)
       source = []
       date_range.each do |date|
-        expect(Reservation).to receive(:number_for).with(source, date: date)
+        expect(described_class).to receive(:number_for).with(source, date: date)
       end
-      Reservation.number_for_date_range(source, date_range)
+      described_class.number_for_date_range(source, date_range)
     end
   end
 
   describe '#completed_procedures' do
     it 'returns an empty array when passed nil' do
-      expect(Reservation.completed_procedures(nil)).to eq([])
+      expect(described_class.completed_procedures(nil)).to eq([])
     end
     it "collects an array of keys that have value '1'" do
       hash = { collected: '1', not_collected: '0' }
-      expect(Reservation.completed_procedures(hash)).to eq([:collected, nil])
+      expect(described_class.completed_procedures(hash)).to \
+        eq([:collected, nil])
     end
   end
 
   describe '#unique_equipment_items?' do
     it 'returns false when the set has duplicate items' do
       set = Array.new(2) { mock_reservation(equipment_item_id: 1) }
-      expect(Reservation.unique_equipment_items?(set)).to be_falsey
+      expect(described_class.unique_equipment_items?(set)).to be_falsey
     end
     it 'returns true when the set has no duplicate items' do
       set = Array.new(2) { |i| mock_reservation(equipment_item_id: i) }
-      expect(Reservation.unique_equipment_items?(set)).to be_truthy
+      expect(described_class.unique_equipment_items?(set)).to be_truthy
     end
   end
 
@@ -126,9 +127,6 @@ describe Reservation, type: :model do
       expect(res.check_banned).not_to be_empty
       expect(res.valid?).to be_falsey
     end
-  end
-
-  context 'scopes' do
   end
 
   describe 'basic validations' do
@@ -252,9 +250,9 @@ describe Reservation, type: :model do
 
   describe '#overlaps_with' do
     let!(:res) do
-     FactoryGirl.build_stubbed(:valid_reservation,
-                               start_date: Time.zone.today,
-                               due_date: Time.zone.today + 1.day)
+      FactoryGirl.build_stubbed(:valid_reservation,
+                                start_date: Time.zone.today,
+                                due_date: Time.zone.today + 1.day)
     end
     it 'returns true when overlapping with date' do
       expect(res.overlaps_with(Time.zone.today)).to be_truthy
@@ -268,14 +266,14 @@ describe Reservation, type: :model do
     let!(:res) { FactoryGirl.build_stubbed(:valid_reservation) }
     it 'flags the reservation' do
       expect { res.flag(:request) }.to \
-        change{ res.flagged?(:request) }.from(false).to(true)
+        change { res.flagged?(:request) }.from(false).to(true)
     end
     it 'does nothing if flag is undefined' do
-      expect { res.flag(:garbage) }.not_to change{ res.flags }
+      expect { res.flag(:garbage) }.not_to change { res.flags }
     end
     it 'does nothing if flag is already set' do
       res.flag(:request)
-      expect { res.flag(:request) }.not_to change{ res.flags }
+      expect { res.flag(:request) }.not_to change { res.flags }
     end
     it "doesn't save the reservation" do
       expect(res).not_to receive(:save)
@@ -289,13 +287,13 @@ describe Reservation, type: :model do
     it 'unflags the reservation' do
       res.flag(:request)
       expect { res.unflag(:request) }.to \
-        change{ res.flagged?(:request) }.from(true).to(false)
+        change { res.flagged?(:request) }.from(true).to(false)
     end
     it 'does nothing if flag is undefined' do
-      expect { res.unflag(:garbage) }.not_to change{ res.flags }
+      expect { res.unflag(:garbage) }.not_to change { res.flags }
     end
     it 'does nothing if not flagged' do
-      expect { res.unflag(:request) }.not_to change{ res.flags }
+      expect { res.unflag(:request) }.not_to change { res.flags }
     end
     it "doesn't save the reservation" do
       expect(res).not_to receive(:save)
@@ -305,7 +303,7 @@ describe Reservation, type: :model do
     end
   end
 
-  describe '#human_status' do 
+  describe '#human_status' do
     shared_examples 'returns the proper string' do |string, type, **attrs|
       it do
         res = FactoryGirl.build_stubbed(type, **attrs)
@@ -421,10 +419,10 @@ describe Reservation, type: :model do
 
   describe '#find_renewal_length' do
     let!(:length) { 5 }
-    let!(:model) do 
+    let!(:model) do
       FactoryGirl.create(:equipment_model_with_item, max_renewal_length: length)
     end
-    let!(:res) do 
+    let!(:res) do
       FactoryGirl.build_stubbed(:valid_reservation,
                                 reserver: FactoryGirl.create(:user),
                                 equipment_model: model)
@@ -526,7 +524,7 @@ describe Reservation, type: :model do
     end
   end
 
-  describe '#to_cart' do 
+  describe '#to_cart' do
     it 'returns a new cart object corresponding to the reservation' do
       res = FactoryGirl.build_stubbed(:valid_reservation,
                                       reserver: FactoryGirl.create(:user))
@@ -535,7 +533,7 @@ describe Reservation, type: :model do
       expect(cart.start_date).to eq(res.start_date)
       expect(cart.due_date).to eq(res.due_date)
       expect(cart.reserver_id).to eq(res.reserver.id)
-      expect(cart.items).to eq({ res.equipment_model_id => 1})
+      expect(cart.items).to eq(res.equipment_model_id => 1)
     end
   end
 
@@ -560,13 +558,13 @@ describe Reservation, type: :model do
       end
       it 'updates the due date' do
         old_date = res.due_date
-        expect { res.renew(user) }.to change{ res.due_date }
+        expect { res.renew(user) }.to change { res.due_date }
           .from(old_date).to(new_date)
       end
       it 'increments times_renewed' do
-        expect { res.renew(user) }.to change{ res.times_renewed }.by(1)
+        expect { res.renew(user) }.to change { res.times_renewed }.by(1)
       end
-      it 'updates the notes' do 
+      it 'updates the notes' do
         time_string = Time.zone.now.to_s(:long)
         due_date_string = new_date.to_s(:long)
         allow(user).to receive(:md_link).and_return('md link')
@@ -597,7 +595,7 @@ describe Reservation, type: :model do
       end
       it 'sets the checked in time' do
         # travel in order to freeze the time
-        travel(-1.day) do
+        travel(-1.days) do
           expect { res.checkin(handler, {}, '') }.to \
             change { res.checked_in }.from(nil).to(Time.zone.now)
         end
@@ -607,8 +605,7 @@ describe Reservation, type: :model do
           change { res.status }.from('checked_out').to('returned')
       end
       it 'updates the notes' do
-        # FIXME:
-        # might fall under overtesting by way of testing messages sent to self
+        # FIXME: might fall under overtesting (testing messages sent to self)
         # but notes handling will be handled by a separate module in the future
         # alternatively just test that the notes change?
         # also applies to the next two tests
@@ -686,7 +683,7 @@ describe Reservation, type: :model do
       end
       it 'sets the checked out time' do
         # travel in order to freeze the time
-        travel(-1.day) do
+        travel(-1.days) do
           expect { res.checkout(item.id, handler, {}, '') }.to \
             change { res.checked_out }.from(nil).to(Time.zone.now)
         end
@@ -700,8 +697,7 @@ describe Reservation, type: :model do
           change { res.equipment_item_id }.from(nil).to(item.id)
       end
       it 'updates the notes' do
-        # FIXME:
-        # might fall under overtesting by way of testing messages sent to self
+        # FIXME: might fall under overtesting (testing messages sent to self)
         # but notes handling will be handled by a separate module in the future
         # alternatively just test that the notes change?
         # also applies to the next two tests
@@ -755,7 +751,7 @@ describe Reservation, type: :model do
     context 'not checked in' do
       context 'not checked out' do
         it 'sets checked_out to now' do
-          travel(-1.day) do
+          travel(-1.days) do
             res = FactoryGirl.build_stubbed(:valid_reservation)
             expect { res.archive(archiver, '') }.to change { res.checked_out }
               .from(nil).to(Time.zone.now)
@@ -763,14 +759,14 @@ describe Reservation, type: :model do
         end
       end
       it 'sets checked_in to now' do
-        travel(-1.day) do
+        travel(-1.days) do
           res = FactoryGirl.build_stubbed(:checked_out_reservation)
           expect { res.archive(archiver, '') }.to change { res.checked_in }
             .from(nil).to(Time.zone.now)
         end
       end
       it 'updates the notes' do
-        travel(-1.day) do
+        travel(-1.days) do
           res = FactoryGirl.build_stubbed(:checked_out_reservation)
           allow(archiver).to receive(:md_link).and_return('md link')
           note = 'note'
@@ -803,13 +799,13 @@ describe Reservation, type: :model do
     end
     it 'updates with given notes' do
       res = FactoryGirl.build_stubbed(:valid_reservation)
-      res.update(user, {}, 'test_note') 
+      res.update(user, {}, 'test_note')
       expect(res.notes).to include('test_note')
     end
     it 'notes the editing user' do
       res = FactoryGirl.build_stubbed(:valid_reservation)
       allow(user).to receive(:md_link).and_return('md link')
-      res.update(user, {}, 'test_note') 
+      res.update(user, {}, 'test_note')
       expect(res.notes).to include('md link')
     end
     shared_examples 'notes change with md link' do |factory, attr|
