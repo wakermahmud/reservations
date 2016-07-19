@@ -2,9 +2,6 @@ require 'spec_helper'
 require 'concerns/linkable_spec.rb'
 
 describe EquipmentItem, type: :model do
-  include EquipmentItemMocker
-  include UserMocker
-  include ReservationMocker
   include ActiveSupport::Testing::TimeHelpers
 
   it_behaves_like 'linkable'
@@ -57,7 +54,7 @@ describe EquipmentItem, type: :model do
 
   describe '#for_eq_model' do
     it 'counts the number of items for the given model' do
-      items = Array.new(2) { |i| mock_eq_item(equipment_model_id: i) }
+      items = Array.new(2) { |i| EquipmentItemMock.new(equipment_model_id: i) }
       expect(described_class.for_eq_model(0, items)).to eq(1)
     end
   end
@@ -111,46 +108,48 @@ describe EquipmentItem, type: :model do
   end
 
   describe '#make_reservation_notes' do
-    let!(:user) { mock_user(md_link: 'md_link') }
+    let!(:user) { UserMock.new(md_link: 'md_link') }
     let!(:item) { FactoryGirl.build(:equipment_item) }
     it 'updates the notes' do
       allow(item).to receive(:update_attributes)
-      item.make_reservation_notes('', mock_reservation(reserver: user), user,
+      item.make_reservation_notes('', ReservationMock.new(reserver: user), user,
                                   '', Time.zone.now)
       expect(item).to have_received(:update_attributes)
         .with(hash_including(:notes))
     end
     it 'includes the given time' do
       time = Time.zone.now
-      item.make_reservation_notes('', mock_reservation(reserver: user), user,
+      item.make_reservation_notes('', ReservationMock.new(reserver: user), user,
                                   '', time)
       expect(item.notes).to include(time.to_s(:long))
     end
     it 'includes the current user link' do
-      item.make_reservation_notes('', mock_reservation(reserver: mock_user),
+      item.make_reservation_notes('',
+                                  ReservationMock.new(reserver: UserMock.new),
                                   user, '', Time.zone.now)
       expect(item.notes).to include(user.md_link)
     end
     it 'includes the reservation link' do
-      res = mock_reservation(reserver: mock_user, md_link: 'res_link')
+      res = ReservationMock.new(reserver: UserMock.new, md_link: 'res_link')
       item.make_reservation_notes('', res, user, '', Time.zone.now)
       expect(item.notes).to include(res.md_link)
     end
     it 'includes the reserver link' do
-      reserver = mock_user(md_link: 'reserver_link')
-      res = mock_reservation(reserver: reserver)
+      reserver = UserMock.new(md_link: 'reserver_link')
+      res = ReservationMock.new(reserver: reserver)
       item.make_reservation_notes('', res, user, '', Time.zone.now)
       expect(item.notes).to include(reserver.md_link)
     end
     it 'includes extra notes' do
-      item.make_reservation_notes('', mock_reservation(reserver: mock_user),
+      item.make_reservation_notes('',
+                                  ReservationMock.new(reserver: UserMock.new),
                                   user, 'extra_note', Time.zone.now)
       expect(item.notes).to include('extra_note')
     end
   end
 
   describe '#make_switch_notes' do
-    let!(:user) { mock_user }
+    let!(:user) { UserMock.new }
     let!(:item) { FactoryGirl.build(:equipment_item) }
     it 'updates the notes' do
       allow(item).to receive(:update_attributes)
@@ -159,8 +158,8 @@ describe EquipmentItem, type: :model do
         .with(hash_including(:notes))
     end
     it 'includes the reservation links when passed' do
-      old = mock_reservation(md_link: 'old_link')
-      new = mock_reservation(md_link: 'new_link')
+      old = ReservationMock.new(md_link: 'old_link')
+      new = ReservationMock.new(md_link: 'new_link')
       item.make_switch_notes(old, new, user)
       expect(item.notes). to include(old.md_link)
       expect(item.notes). to include(new.md_link)
@@ -180,7 +179,7 @@ describe EquipmentItem, type: :model do
   end
 
   describe '#update' do
-    let!(:user) { mock_user }
+    let!(:user) { UserMock.new }
     context 'no changes' do
       let!(:item) { FactoryGirl.build_stubbed(:equipment_item) }
       it 'does nothing' do
@@ -228,7 +227,7 @@ describe EquipmentItem, type: :model do
   end
 
   describe '#deactivate' do
-    let!(:user) { mock_user(md_link: 'md_link') }
+    let!(:user) { UserMock.new(md_link: 'md_link') }
     let!(:item) { FactoryGirl.build_stubbed(:equipment_item) }
     before do
       allow(item).to receive(:destroy)
