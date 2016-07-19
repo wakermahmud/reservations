@@ -2,16 +2,13 @@ require 'spec_helper'
 require 'concerns/linkable_spec.rb'
 
 describe Reservation, type: :model do
-  include ReservationMocker
-  include EquipmentModelMocker
-  include UserMocker
   include ActiveSupport::Testing::TimeHelpers
 
   it_behaves_like 'linkable'
 
   describe '#number_for' do
     it 'counts the number that overlap with today' do
-      source = Array.new(2) { mock_reservation }
+      source = Array.new(2) { ReservationMock.new }
       source.each do |r|
         allow(r).to receive(:overlaps_with).with(Time.zone.today)
           .and_return(true)
@@ -20,14 +17,14 @@ describe Reservation, type: :model do
     end
     it 'counts the number that overlap with a given day' do
       date = Time.zone.today + 2.days
-      source = Array.new(2) { mock_reservation }
+      source = Array.new(2) { ReservationMock.new }
       allow(source.first).to receive(:overlaps_with).with(date).and_return(true)
       allow(source.last).to receive(:overlaps_with).with(date).and_return(false)
       expect(described_class.number_for(source, date: date)).to eq(1)
     end
     it 'counts according to attribute hash' do
       attrs = { overdue: false }
-      res = mock_reservation
+      res = ReservationMock.new
       described_class.number_for([res], **attrs)
       expect(res).to have_received(:attrs?).with(**attrs)
     end
@@ -57,11 +54,11 @@ describe Reservation, type: :model do
 
   describe '#unique_equipment_items?' do
     it 'returns false when the set has duplicate items' do
-      set = Array.new(2) { mock_reservation(equipment_item_id: 1) }
+      set = Array.new(2) { ReservationMock.new(equipment_item_id: 1) }
       expect(described_class.unique_equipment_items?(set)).to be_falsey
     end
     it 'returns true when the set has no duplicate items' do
-      set = Array.new(2) { |i| mock_reservation(equipment_item_id: i) }
+      set = Array.new(2) { |i| ReservationMock.new(equipment_item_id: i) }
       expect(described_class.unique_equipment_items?(set)).to be_truthy
     end
   end
