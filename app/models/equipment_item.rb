@@ -19,7 +19,6 @@ class EquipmentItem < ActiveRecord::Base
 
   searchable_on(:name, :serial)
 
-
   def self.for_eq_model(model_id, source_objects)
     # count the number of equipment items for a given
     # model out of an array of source objects

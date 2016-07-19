@@ -79,7 +79,7 @@ describe EquipmentItem, type: :model do
     end
     it 'includes deactivation reason if it is set' do
       reason = 'because i can'
-      item = FactoryGirl.build_stubbed(:equipment_item, 
+      item = FactoryGirl.build_stubbed(:equipment_item,
                                        deleted_at: Time.zone.today,
                                        deactivation_reason: reason)
       expect(item.status).to include(reason)
@@ -192,13 +192,13 @@ describe EquipmentItem, type: :model do
       it 'includes the current time' do
         travel(-1.days) do
           time = Time.zone.now.to_s(:long)
-          item.update(user, { serial: 'a' })
+          item.update(user, serial: 'a')
           expect(item.notes).to include(time)
         end
       end
       it 'includes the current user' do
         allow(user).to receive(:md_link).and_return('user_link')
-        item.update(user, { serial: 'a' })
+        item.update(user, serial: 'a')
         expect(item.notes).to include(user.md_link)
       end
     end
@@ -207,7 +207,7 @@ describe EquipmentItem, type: :model do
         old = 'a'
         new = 'b'
         item = FactoryGirl.build_stubbed(:equipment_item, attr => old)
-        item.update(user, { attr => new })
+        item.update(user, attr => new)
         expect(item.notes).to include(old)
         expect(item.notes).to include(new)
       end
@@ -219,13 +219,12 @@ describe EquipmentItem, type: :model do
         old = FactoryGirl.create(:equipment_model)
         new = FactoryGirl.create(:equipment_model)
         item = FactoryGirl.build_stubbed(:equipment_item, equipment_model: old)
-        item.update(user, { equipment_model_id: new.id })
+        item.update(user, equipment_model_id: new.id)
         expect(item.notes).to include('Equipment Model')
         expect(item.notes).to include(old.name)
         expect(item.notes).to include(new.name)
       end
     end
-
   end
 
   describe '#deactivate' do
