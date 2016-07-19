@@ -2,11 +2,6 @@ require 'spec_helper'
 require 'helpers/email_helper_spec'
 
 describe ReservationsController, type: :controller do
-  include ReservationMocker
-  include EquipmentModelMocker
-  include EquipmentItemMocker
-  include UserMocker
-
   AC_DEFAULTS = { disable_user_emails: false,
                   override_on_create: false,
                   override_at_checkout: false,
@@ -81,9 +76,7 @@ describe ReservationsController, type: :controller do
     context 'normal user' do
       let!(:user) do
         res = spy('Array', starts_on_days: time_filtered)
-        mock_user.tap do |u|
-          allow(u).to receive(:reservations).and_return(res)
-        end
+        UserMock.new(reservations: res)
       end
       before(:each) do
         mock_user_sign_in(user)
@@ -102,7 +95,7 @@ describe ReservationsController, type: :controller do
     end
 
     context 'admin' do
-      let!(:user) { mock_user(:admin) }
+      let!(:user) { UserMock.new(:admin) }
       before(:each) do
         allow(Reservation).to receive(:starts_on_days)
           .and_return(time_filtered)
@@ -429,17 +422,17 @@ describe ReservationsController, type: :controller do
     context 'when accessed by checkout person disallowed by settings' do
       before(:each) do
         mock_app_config(AC_DEFAULTS.merge(checkout_persons_can_edit: false))
-        mock_user_sign_in(mock_user(:checkout_person))
+        mock_user_sign_in(UserMock.new(:checkout_person))
         get 'edit', id: 1
       end
       include_examples 'redirected request'
     end
 
     shared_examples 'can access edit page' do
-      let!(:item) { mock_eq_item(id: 1, name: 'Name') }
+      let!(:item) { EquipmentItemMock.new(id: 1, name: 'Name') }
       before do
-        model = mock_eq_model(traits: [[:with_item, item: item]])
-        res = mock_reservation(traits: [:findable], equipment_model: model)
+        model = EquipmentModelMock.new(traits: [[:with_item, item: item]])
+        res = ReservationMock.new(traits: [:findable], equipment_model: model)
         get :edit, id: res.id
       end
       it 'assigns @option_array as Array' do
@@ -455,14 +448,14 @@ describe ReservationsController, type: :controller do
       # FIXME: permissions fail before it can hit controller action
       before(:each) do
         mock_app_config(AC_DEFAULTS.merge(checkout_persons_can_edit: true))
-        mock_user_sign_in(mock_user(:checkout_person))
+        mock_user_sign_in(UserMock.new(:checkout_person))
       end
       it_behaves_like 'can access edit page'
     end
 
     context 'when accessed by admin' do
       before(:each) do
-        mock_user_sign_in(mock_user(:admin))
+        mock_user_sign_in(UserMock.new(:admin))
       end
       include_examples 'can access edit page'
     end
@@ -716,36 +709,36 @@ describe ReservationsController, type: :controller do
     end
 
     ADMIN_ROLES.each do |role|
-      before { mock_user_sign_in(mock_user(role)) }
-      let!(:res) { mock_reservation(traits: [:findable]) }
+      before { mock_user_sign_in(UserMock.new(role)) }
+      let!(:res) { ReservationMock.new(traits: [:findable]) }
       it_behaves_like 'can destroy reservation'
     end
 
     context 'when accessed by patron' do
-      let!(:user) { mock_user }
+      let!(:user) { UserMock.new }
       before { mock_user_sign_in(user) }
 
       context 'and the reservation is their own' do
         context 'and it is checked out' do
           let!(:res) do
-            mock_reservation(traits: [:findable], reserver: user,
+            ReservationMock.new(traits: [:findable], reserver: user,
                              status: 'checked_out')
           end
           it_behaves_like 'cannot destroy reservation'
         end
         context 'and it is not checked out' do
-          let!(:res) { mock_reservation(traits: [:findable], reserver: user) }
+          let!(:res) { ReservationMock.new(traits: [:findable], reserver: user) }
           it_behaves_like 'can destroy reservation'
         end
       end
       context 'and the reservation is not their own' do
-        let!(:res) { mock_reservation(traits: [:findable]) }
+        let!(:res) { ReservationMock.new(traits: [:findable]) }
         it_behaves_like 'cannot destroy reservation'
       end
     end
 
     it_behaves_like 'inaccessible by banned user' do
-      let!(:res) { mock_reservation(traits: [:findable]) }
+      let!(:res) { ReservationMock.new(traits: [:findable]) }
       before { delete :destroy, id: res.id }
     end
   end
@@ -757,7 +750,7 @@ describe ReservationsController, type: :controller do
     # - renders :manage
 
     shared_examples 'can access #manage' do
-      let!(:user) { mock_user(traits: [:findable]) }
+      let!(:user) { UserMock.new(traits: [:findable]) }
       before(:each) do
         allow(user).to receive(:due_for_checkout)
           .and_return(instance_spy('ActiveRecord::Relation'))
@@ -779,18 +772,18 @@ describe ReservationsController, type: :controller do
     end
 
     context 'when accessed by admin' do
-      before(:each) { mock_user_sign_in(mock_user(:admin)) }
+      before(:each) { mock_user_sign_in(UserMock.new(:admin)) }
       include_examples 'can access #manage'
     end
 
     context 'when accessed by checkout person' do
-      before(:each) { mock_user_sign_in(mock_user(:checkout_person)) }
+      before(:each) { mock_user_sign_in(UserMock.new(:checkout_person)) }
       include_examples 'can access #manage'
     end
 
     context 'when accessed by patron' do
       before(:each) do
-        user = mock_user
+        user = UserMock.new
         mock_user_sign_in(user)
         get :manage, user_id: user.id
       end
@@ -1341,7 +1334,7 @@ describe ReservationsController, type: :controller do
 
     context 'when accessed by admin' do
       let!(:res) { FactoryGirl.build_stubbed(:valid_reservation) }
-      before { mock_user_sign_in(mock_user(:admin)) }
+      before { mock_user_sign_in(UserMock.new(:admin)) }
       include_examples 'can renew reservation'
       context 'cannot renew' do
         before do
@@ -1356,7 +1349,7 @@ describe ReservationsController, type: :controller do
 
     context 'when accessed by checkout person' do
       let!(:res) { FactoryGirl.build_stubbed(:valid_reservation) }
-      before { mock_user_sign_in(mock_user(:checkout_person)) }
+      before { mock_user_sign_in(UserMock.new(:checkout_person)) }
       include_examples 'can renew reservation'
     end
 
@@ -1533,7 +1526,7 @@ describe ReservationsController, type: :controller do
   end
 
   describe '#send_receipt (GET /reservations/:id/send_receipt)' do
-    before { mock_user_sign_in(mock_user(:checkout_person)) }
+    before { mock_user_sign_in(UserMock.new(:checkout_person)) }
     let!(:res) { FactoryGirl.build_stubbed(:valid_reservation) }
 
     context 'successfully emails' do
@@ -1562,13 +1555,13 @@ describe ReservationsController, type: :controller do
   end
 
   describe '#review GET' do
-    let!(:res) { mock_reservation(traits: [:findable]) }
+    let!(:res) { ReservationMock.new(traits: [:findable]) }
     context 'as admin' do
       before do
-        mock_user_sign_in(mock_user(:admin))
+        mock_user_sign_in(UserMock.new(:admin))
       end
       it 'should assign all current requests except itself' do
-        other = mock_reservation(traits: [:findable])
+        other = ReservationMock.new(traits: [:findable])
         full = [res, other]
         expect(res).to \
           receive_message_chain(:reserver, :reservations, :requested)
@@ -1577,6 +1570,9 @@ describe ReservationsController, type: :controller do
         expect(assigns(:all_current_requests_by_user)).to eq([other])
       end
       it 'should assign errors' do
+        allow(res).to \
+          receive_message_chain(:reserver, :reservations, :requested)
+          .and_return([])
         allow(res).to receive(:validate).and_return('errors')
         get :review, id: res.id
         expect(assigns(:errors)).to eq('errors')
