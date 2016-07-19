@@ -4,6 +4,7 @@ require 'concerns/linkable_spec.rb'
 describe EquipmentItem, type: :model do
   include EquipmentItemMocker
   include UserMocker
+  include ReservationMocker
   include ActiveSupport::Testing::TimeHelpers
 
   it_behaves_like 'linkable'
@@ -109,8 +110,126 @@ describe EquipmentItem, type: :model do
     end
   end
 
+  describe '#make_reservation_notes' do
+    let!(:user) { mock_user(md_link: 'md_link') }
+    let!(:item) { FactoryGirl.build(:equipment_item) }
+    it 'updates the notes' do
+      allow(item).to receive(:update_attributes)
+      item.make_reservation_notes('', mock_reservation(reserver: user), user,
+                                  '', Time.zone.now)
+      expect(item).to have_received(:update_attributes)
+        .with(hash_including(:notes))
+    end
+    it 'includes the given time' do
+      time = Time.zone.now
+      item.make_reservation_notes('', mock_reservation(reserver: user), user,
+                                  '', time)
+      expect(item.notes).to include(time.to_s(:long))
+    end
+    it 'includes the current user link' do
+      item.make_reservation_notes('', mock_reservation(reserver: mock_user),
+                                  user, '', Time.zone.now)
+      expect(item.notes).to include(user.md_link)
+    end
+    it 'includes the reservation link' do
+      res = mock_reservation(reserver: mock_user, md_link: 'res_link')
+      item.make_reservation_notes('', res, user, '', Time.zone.now)
+      expect(item.notes).to include(res.md_link)
+    end
+    it 'includes the reserver link' do
+      reserver = mock_user(md_link: 'reserver_link')
+      res = mock_reservation(reserver: reserver)
+      item.make_reservation_notes('', res, user, '', Time.zone.now)
+      expect(item.notes).to include(reserver.md_link)
+    end
+    it 'includes extra notes' do
+      item.make_reservation_notes('', mock_reservation(reserver: mock_user),
+                                  user, 'extra_note', Time.zone.now)
+      expect(item.notes).to include('extra_note')
+    end
+  end
+
+  describe '#make_switch_notes' do
+    let!(:user) { mock_user }
+    let!(:item) { FactoryGirl.build(:equipment_item) }
+    it 'updates the notes' do
+      allow(item).to receive(:update_attributes)
+      item.make_switch_notes(nil, nil, user)
+      expect(item).to have_received(:update_attributes)
+        .with(hash_including(:notes))
+    end
+    it 'includes the reservation links when passed' do
+      old = mock_reservation(md_link: 'old_link')
+      new = mock_reservation(md_link: 'new_link')
+      item.make_switch_notes(old, new, user)
+      expect(item.notes). to include(old.md_link)
+      expect(item.notes). to include(new.md_link)
+    end
+    it 'includes the current time' do
+      travel(-1.days) do
+        time = Time.zone.now.to_s(:long)
+        item.make_switch_notes(nil, nil, user)
+        expect(item.notes). to include(time)
+      end
+    end
+    it 'includes the handler link' do
+      allow(user).to receive(:md_link).and_return('user_link')
+      item.make_switch_notes(nil, nil, user)
+      expect(item.notes). to include(user.md_link)
+    end
+  end
+
+  describe '#update' do
+    let!(:user) { mock_user }
+    context 'no changes' do
+      let!(:item) { FactoryGirl.build_stubbed(:equipment_item) }
+      it 'does nothing' do
+        expect { item.update(user, {}) }.not_to change { item.notes }
+      end
+    end
+    context 'any changes' do
+      let!(:item) { FactoryGirl.build_stubbed(:equipment_item) }
+      it 'includes the current time' do
+        travel(-1.days) do
+          time = Time.zone.now.to_s(:long)
+          item.update(user, { serial: 'a' })
+          expect(item.notes).to include(time)
+        end
+      end
+      it 'includes the current user' do
+        allow(user).to receive(:md_link).and_return('user_link')
+        item.update(user, { serial: 'a' })
+        expect(item.notes).to include(user.md_link)
+      end
+    end
+    shared_examples 'string change noted' do |attr|
+      it do
+        old = 'a'
+        new = 'b'
+        item = FactoryGirl.build_stubbed(:equipment_item, attr => old)
+        item.update(user, { attr => new })
+        expect(item.notes).to include(old)
+        expect(item.notes).to include(new)
+      end
+    end
+    it_behaves_like 'string change noted', :name
+    it_behaves_like 'string change noted', :serial
+    context 'changing the equipment model' do
+      it 'notes the change' do
+        old = FactoryGirl.create(:equipment_model)
+        new = FactoryGirl.create(:equipment_model)
+        item = FactoryGirl.build_stubbed(:equipment_item, equipment_model: old)
+        item.update(user, { equipment_model_id: new.id })
+        expect(item.notes).to include('Equipment Model')
+        expect(item.notes).to include(old.name)
+        expect(item.notes).to include(new.name)
+      end
+    end
+
+  end
+
   describe '#deactivate' do
-    let!(:user) { mock_user(:admin, md_link: 'md_link') }
+    let!(:user) { mock_user(md_link: 'md_link') }
     let!(:item) { FactoryGirl.build_stubbed(:equipment_item) }
     before do
       allow(item).to receive(:destroy)
