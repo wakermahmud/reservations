@@ -54,7 +54,7 @@ describe ReservationsController, type: :controller do
 
   describe '#index (GET /reservations/)' do
     # SMELLS:
-    #   - @filters 
+    #   - @filters
     #   - long method
     #   - message chains
     let!(:time_filtered) { spy('Array') }
@@ -85,7 +85,7 @@ describe ReservationsController, type: :controller do
           allow(u).to receive(:reservations).and_return(res)
         end
       end
-      before(:each) do 
+      before(:each) do
         mock_user_sign_in(user)
         get :index
       end
@@ -699,7 +699,7 @@ describe ReservationsController, type: :controller do
     # Functionality:
     # - destroy reservation, set flash[:notice], redirect to reservations_url
 
-    ADMIN_ROLES = [:admin, :checkout_person]
+    ADMIN_ROLES = [:admin, :checkout_person].freeze
 
     shared_examples 'can destroy reservation' do
       before { delete :destroy, id: res.id }
@@ -727,10 +727,10 @@ describe ReservationsController, type: :controller do
 
       context 'and the reservation is their own' do
         context 'and it is checked out' do
-            let!(:res) do
-              mock_reservation(traits: [:findable], reserver: user,
-                               status: 'checked_out')
-            end
+          let!(:res) do
+            mock_reservation(traits: [:findable], reserver: user,
+                             status: 'checked_out')
+          end
           it_behaves_like 'cannot destroy reservation'
         end
         context 'and it is not checked out' do
@@ -758,12 +758,12 @@ describe ReservationsController, type: :controller do
 
     shared_examples 'can access #manage' do
       let!(:user) { mock_user(traits: [:findable]) }
-      before(:each) do 
+      before(:each) do
         allow(user).to receive(:due_for_checkout)
           .and_return(instance_spy('ActiveRecord::Relation'))
         allow(user).to receive(:due_for_checkin)
           .and_return(instance_spy('ActiveRecord::Relation'))
-        get :manage, user_id: user.id 
+        get :manage, user_id: user.id
       end
       it { expect(response).to be_success }
       it { is_expected.to render_template(:manage) }
@@ -920,7 +920,7 @@ describe ReservationsController, type: :controller do
       @admin = FactoryGirl.create(:admin)
       @banned = FactoryGirl.create(:banned)
     end
-    
+
     after(:all) do
       User.destroy_all
     end
@@ -1188,7 +1188,7 @@ describe ReservationsController, type: :controller do
       @admin = FactoryGirl.create(:admin)
       @banned = FactoryGirl.create(:banned)
     end
-    
+
     after(:all) do
       User.destroy_all
     end
@@ -1365,7 +1365,7 @@ describe ReservationsController, type: :controller do
       before { mock_user_sign_in user }
       context 'own reservation' do
         let!(:res) do
-          FactoryGirl.build_stubbed(:valid_reservation, reserver: user) 
+          FactoryGirl.build_stubbed(:valid_reservation, reserver: user)
         end
         include_examples 'can renew reservation'
       end
@@ -1401,7 +1401,7 @@ describe ReservationsController, type: :controller do
       @admin = FactoryGirl.create(:admin)
       @banned = FactoryGirl.create(:banned)
     end
-    
+
     after(:all) do
       User.destroy_all
     end

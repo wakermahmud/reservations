@@ -1,5 +1,5 @@
 module UserMocker
-  FIND_ACTIONS = [:find_by_id, :find]
+  FIND_ACTIONS = [:find_by_id, :find].freeze
 
   def mock_user(role = :user, traits: [], **attrs)
     traits.map! { |trait, *args| ["user_#{trait}".to_sym, *args] }
