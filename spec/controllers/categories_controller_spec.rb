@@ -1,8 +1,6 @@
 require 'spec_helper'
 
 describe CategoriesController, type: :controller do
-  include CategoryMocker
-  include EquipmentModelMocker
   before(:each) { mock_app_config }
 
   it_behaves_like 'calendarable', Category
@@ -37,7 +35,7 @@ describe CategoriesController, type: :controller do
   describe 'GET show' do
     context 'user is admin' do
       # NOTE: this may be a superfluous test; #show doesn't do much
-      let!(:cat) { mock_category(traits: [:findable]) }
+      let!(:cat) { CategoryMock.new(traits: [:findable]) }
       before do
         mock_user_sign_in(mock_user(:admin))
         get :show, id: cat.id
@@ -93,7 +91,7 @@ describe CategoriesController, type: :controller do
         it { is_expected.to redirect_to(cat) }
       end
       context 'unsuccessful save' do
-        let!(:cat) { mock_category }
+        let!(:cat) { CategoryMock.new }
         before do
           allow(Category).to receive(:new).and_return(cat)
           allow(cat).to receive(:save).and_return(false)
@@ -126,7 +124,7 @@ describe CategoriesController, type: :controller do
         it { is_expected.to redirect_to(cat) }
       end
       context 'unsuccessful update' do
-        let!(:cat) { mock_category(traits: [:findable]) }
+        let!(:cat) { CategoryMock.new(traits: [:findable]) }
         before do
           allow(cat).to receive(:update_attributes).and_return(false)
           put :update, id: cat.id, category: { id: 2 }
@@ -163,7 +161,9 @@ describe CategoriesController, type: :controller do
       it_behaves_like 'not confirmed', :error
 
       context 'confirmed' do
-        let!(:cat) { mock_category(traits: [:findable], equipment_models: []) }
+        let!(:cat) do
+          CategoryMock.new(traits: [:findable], equipment_models: [])
+        end
         before do
           request.env['HTTP_REFERER'] = 'where_i_came_from'
           put :deactivate, id: cat.id, deactivation_confirmed: true
@@ -174,10 +174,10 @@ describe CategoriesController, type: :controller do
       end
 
       context 'with reservations' do
-        let!(:cat) { mock_category(traits: [:findable]) }
+        let!(:cat) { CategoryMock.new(traits: [:findable]) }
         let!(:res) { instance_spy('reservation') }
         before do
-          model = mock_eq_model(traits: [[:with_category, cat: cat]])
+          model = EquipmentModelMock.new(traits: [[:with_category, cat: cat]])
           # stub out scope chain -- SMELL
           allow(Reservation).to receive(:for_eq_model).with(model.id)
             .and_return(Reservation)

@@ -48,7 +48,7 @@ class Mocker < RSpec::Mocks::InstanceVerifyingDouble
   end
 
   # Generalized association stubs
-  def child_of_has_many(mocked_parent:, parent_sym:, children_sym:)
+  def child_of_has_many(mocked_parent:, parent_sym:, child_sym:)
     allow(spy).to receive(parent_sym).and_return(mocked_parent)
     children = if mocked_parent.send(child_sym).is_a? Array
                  mocked_parent.send(child_sym) << spy

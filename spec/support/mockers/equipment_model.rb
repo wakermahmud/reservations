@@ -15,6 +15,6 @@ class EquipmentModelMock < Mocker
   def with_category(cat: nil)
     cat ||= CategoryMock.new
     child_of_has_many(mocked_parent: cat, parent_sym: :category,
-                      children_sym: :equipment_models)
+                      child_sym: :equipment_models)
   end
 end
