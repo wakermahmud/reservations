@@ -1,8 +1,6 @@
 require 'spec_helper'
 
 describe EquipmentItemsController, type: :controller do
-  include EquipmentItemMocker
-
   before(:each) { mock_app_config }
 
   it_behaves_like 'calendarable', EquipmentItem
@@ -21,28 +19,27 @@ describe EquipmentItemsController, type: :controller do
       end
 
       it 'defaults to all active equipment items' do
-        items = mock_eq_items
-        expect(EquipmentItem).to receive(:active).and_return(items)
+        allow(EquipmentItem).to receive(:active)
         get :index
+        expect(EquipmentItem).to have_received(:active)
       end
 
       context '@equipment_model set' do
         it 'restricts to the model' do
-          item = mock_eq_item(traits: [:with_model], id: 1)
-          model = item.equipment_model
-          expect(model).to receive(:equipment_items).and_return(item)
-          allow(item).to receive(:active)
+          items = spy('Array')
+          model = EquipmentModelMock.new(traits: [:findable,
+                                                  [:with_items, items: items]])
+          allow(items).to receive(:active)
           get :index, equipment_model_id: model.id
+          expect(model).to have_received(:equipment_items)
         end
       end
 
       context 'show_deleted set' do
         it 'gets all equipment items' do
-          items = mock_eq_items
-          # SMELL; shouldn't have to return none first
-          expect(EquipmentItem).to receive(:all).and_return(EquipmentItem.none,
-                                                            items)
+          allow(EquipmentItem).to receive(:all).and_return(EquipmentItem.none)
           get :index, show_deleted: true
+          expect(EquipmentItem).to have_received(:all).twice
         end
       end
     end
@@ -64,7 +61,7 @@ describe EquipmentItemsController, type: :controller do
 
   describe 'GET show' do
     context 'with admin user' do
-      let!(:item) { mock_eq_item(traits: [:findable]) }
+      let!(:item) { EquipmentItemMock.new(traits: [:findable]) }
       before do
         mock_user_sign_in(mock_user(:admin))
         get :show, id: item.id
@@ -96,7 +93,7 @@ describe EquipmentItemsController, type: :controller do
         expect(assigns(:equipment_item)).to be_kind_of(EquipmentItem)
       end
       it 'sets equipment_model when one is passed through params' do
-        model = mock_eq_model(traits: [:findable])
+        model = EquipmentModelMock.new(traits: [:findable])
         expect(EquipmentItem).to receive(:new).with(equipment_model: model)
         get :new, equipment_model_id: model.id
       end
@@ -114,7 +111,7 @@ describe EquipmentItemsController, type: :controller do
     context 'with admin user' do
       before { mock_user_sign_in(mock_user(:admin, md_link: 'admin')) }
       let!(:model) { FactoryGirl.build_stubbed(:equipment_model) }
-      let!(:item) { mock_eq_item(traits: [[:with_model, model: model]]) }
+      let!(:item) { EquipmentItemMock.new(traits: [[:with_model, model: model]]) }
       context 'successful save' do
         before do
           allow(EquipmentItem).to receive(:new).and_return(item)
@@ -190,7 +187,7 @@ describe EquipmentItemsController, type: :controller do
       shared_examples 'unsuccessful' do |flash_type, **opts|
         let!(:model) { FactoryGirl.build_stubbed(:equipment_model) }
         let!(:item) do
-          mock_eq_item(traits: [:findable], equipment_model: model)
+          EquipmentItemMock.new(traits: [:findable], equipment_model: model)
         end
         before { put :deactivate, id: item.id, **opts }
         it { is_expected.to set_flash[flash_type] }
@@ -204,7 +201,7 @@ describe EquipmentItemsController, type: :controller do
                                                deactivation_reason: 'reason'
       it_behaves_like 'unsuccessful', :error
       context 'successful' do
-        let!(:item) { mock_eq_item(traits: [:findable]) }
+        let!(:item) { EquipmentItemMock.new(traits: [:findable]) }
         before do
           request.env['HTTP_REFERER'] = '/referrer'
           allow(item).to receive(:current_reservation).and_return(false)
@@ -217,7 +214,7 @@ describe EquipmentItemsController, type: :controller do
         end
       end
       context 'with reservation' do
-        let!(:item) { mock_eq_item(traits: [:findable]) }
+        let!(:item) { EquipmentItemMock.new(traits: [:findable]) }
         let!(:res) { instance_spy('reservation') }
         before do
           request.env['HTTP_REFERER'] = '/referrer'
@@ -240,7 +237,7 @@ describe EquipmentItemsController, type: :controller do
 
   describe 'PUT activate' do
     context 'with admin user' do
-      let!(:item) { mock_eq_item(traits: [:findable], notes: '') }
+      let!(:item) { EquipmentItemMock.new(traits: [:findable], notes: '') }
       before do
         mock_user_sign_in(mock_user(:admin, md_link: 'admin'))
         request.env['HTTP_REFERER'] = '/referrer'
