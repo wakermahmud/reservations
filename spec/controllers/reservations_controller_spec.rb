@@ -723,12 +723,14 @@ describe ReservationsController, type: :controller do
         context 'and it is checked out' do
           let!(:res) do
             ReservationMock.new(traits: [:findable], reserver: user,
-                             status: 'checked_out')
+                                status: 'checked_out')
           end
           it_behaves_like 'cannot destroy reservation'
         end
         context 'and it is not checked out' do
-          let!(:res) { ReservationMock.new(traits: [:findable], reserver: user) }
+          let!(:res) do
+            ReservationMock.new(traits: [:findable], reserver: user)
+          end
           it_behaves_like 'can destroy reservation'
         end
       end
