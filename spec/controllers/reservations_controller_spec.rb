@@ -154,8 +154,9 @@ describe ReservationsController, type: :controller do
           end
           it { is_expected.to render_template(:new) }
           it 'initializes a new reservation' do
-            expect(Reservation).to receive(:new)
+            allow(Reservation).to receive(:new)
             get :new, nil, cart: cart
+            expect(Reservation).to have_received(:new)
           end
           it 'assigns errors' do
             expect(assigns(:errors)).to eq ''
