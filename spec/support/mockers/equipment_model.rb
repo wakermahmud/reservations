@@ -13,6 +13,10 @@ class EquipmentModelMock < Mocker
 
   private
 
+  def with_item(item:)
+    with_items(items: [item])
+  end
+
   def with_items(items: nil, count: 1)
     items ||= Array.new(count) { EquipmentItemMock.new }
     parent_has_many(mocked_children: items, parent_sym: :equipment_model,

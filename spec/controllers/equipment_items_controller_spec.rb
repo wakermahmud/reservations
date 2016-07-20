@@ -8,7 +8,7 @@ describe EquipmentItemsController, type: :controller do
   describe 'GET index' do
     context 'with admin user' do
       before do
-        mock_user_sign_in(mock_user(:admin))
+        mock_user_sign_in(UserMock.new(:admin))
       end
 
       describe 'basic function' do
@@ -45,7 +45,7 @@ describe EquipmentItemsController, type: :controller do
     end
     context 'with checkout person user' do
       before do
-        mock_user_sign_in(mock_user(:checkout_person))
+        mock_user_sign_in(UserMock.new(:checkout_person))
         get :index
       end
       it_behaves_like 'successful request', :index
@@ -63,7 +63,7 @@ describe EquipmentItemsController, type: :controller do
     context 'with admin user' do
       let!(:item) { EquipmentItemMock.new(traits: [:findable]) }
       before do
-        mock_user_sign_in(mock_user(:admin))
+        mock_user_sign_in(UserMock.new(:admin))
         get :show, id: item.id
       end
       it_behaves_like 'successful request', :show
@@ -84,7 +84,7 @@ describe EquipmentItemsController, type: :controller do
   describe 'GET new' do
     context 'with admin user' do
       before do
-        mock_user_sign_in(mock_user(:admin))
+        mock_user_sign_in(UserMock.new(:admin))
         get :new
       end
       it_behaves_like 'successful request', :new
@@ -111,7 +111,7 @@ describe EquipmentItemsController, type: :controller do
 
   describe 'POST create' do
     context 'with admin user' do
-      before { mock_user_sign_in(mock_user(:admin, md_link: 'admin')) }
+      before { mock_user_sign_in(UserMock.new(:admin, md_link: 'admin')) }
       let!(:model) { FactoryGirl.build_stubbed(:equipment_model) }
       let!(:item) do
         EquipmentItemMock.new(traits: [[:with_model, model: model]])
@@ -151,7 +151,7 @@ describe EquipmentItemsController, type: :controller do
 
   describe 'PUT update' do
     context 'with admin user' do
-      before { mock_user_sign_in(mock_user(:admin)) }
+      before { mock_user_sign_in(UserMock.new(:admin)) }
       let!(:item) { FactoryGirl.build_stubbed(:equipment_item) }
       context 'successful update' do
         before do
@@ -187,7 +187,7 @@ describe EquipmentItemsController, type: :controller do
 
   describe 'PUT deactivate' do
     context 'with admin user' do
-      before { mock_user_sign_in(mock_user(:admin)) }
+      before { mock_user_sign_in(UserMock.new(:admin)) }
       shared_examples 'unsuccessful' do |flash_type, **opts|
         let!(:model) { FactoryGirl.build_stubbed(:equipment_model) }
         let!(:item) do
@@ -219,7 +219,7 @@ describe EquipmentItemsController, type: :controller do
       end
       context 'with reservation' do
         let!(:item) { EquipmentItemMock.new(traits: [:findable]) }
-        let!(:res) { instance_spy('reservation') }
+        let!(:res) { ReservationMock.new }
         before do
           request.env['HTTP_REFERER'] = '/referrer'
           allow(item).to receive(:current_reservation).and_return(res)
@@ -243,7 +243,7 @@ describe EquipmentItemsController, type: :controller do
     context 'with admin user' do
       let!(:item) { EquipmentItemMock.new(traits: [:findable], notes: '') }
       before do
-        mock_user_sign_in(mock_user(:admin, md_link: 'admin'))
+        mock_user_sign_in(UserMock.new(:admin, md_link: 'admin'))
         request.env['HTTP_REFERER'] = '/referrer'
         put :activate, id: item.id
       end

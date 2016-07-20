@@ -1,29 +1,12 @@
-# some basic helpers to simulate devise controller methods in specs
+require Rails.root.join('spec/support/mockers/user.rb')
+
 module ControllerHelpers
-  def current_user
-    user_session_info =
-      response.request.env['rack.session']['warden.user.user.key']
-    return unless user_session_info
-    user_id = user_session_info[0][0]
-    User.find(user_id)
-  end
-
-  def user_signed_in?
-    !current_user.nil?
-  end
-
-  def mock_user(role = :user, **attrs)
-    instance_spy('user', **FactoryGirl.attributes_for(role), **attrs)
-  end
-
-  def mock_user_sign_in(user = mock_user)
+  def mock_user_sign_in(user = UserMock.new(traits: [:findable]))
     pass_app_setup_check
     allow(request.env['warden']).to receive(:authenticate!).and_return(user)
     # necessary for permissions to work
     allow(ApplicationController).to receive(:current_user).and_return(user)
     allow(Ability).to receive(:new).and_return(Ability.new(user))
-    # for the #cart before action in ApplicationController
-    allow(User).to receive(:find_by_id).with(user.id).and_return(user)
     allow_any_instance_of(described_class).to \
       receive(:current_user).and_return(user)
   end
