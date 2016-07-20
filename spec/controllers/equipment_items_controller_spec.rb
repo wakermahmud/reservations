@@ -113,7 +113,9 @@ describe EquipmentItemsController, type: :controller do
     context 'with admin user' do
       before { mock_user_sign_in(mock_user(:admin, md_link: 'admin')) }
       let!(:model) { FactoryGirl.build_stubbed(:equipment_model) }
-      let!(:item) { EquipmentItemMock.new(traits: [[:with_model, model: model]]) }
+      let!(:item) do
+        EquipmentItemMock.new(traits: [[:with_model, model: model]])
+      end
       context 'successful save' do
         before do
           allow(EquipmentItem).to receive(:new).and_return(item)
