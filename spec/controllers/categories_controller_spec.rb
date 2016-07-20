@@ -13,13 +13,15 @@ describe CategoriesController, type: :controller do
       end
       it_behaves_like 'successful request', :index
       it 'populates an array of active categories' do
-        expect(Category).to receive(:active)
+        allow(Category).to receive(:active)
         get :index
+        expect(Category).to have_received(:active)
       end
       context 'show_deleted' do
         it 'populates an array of all categories' do
-          expect(Category).to receive(:all)
+          allow(Category).to receive(:all)
           get :index, show_deleted: true
+          expect(Category).to have_received(:all)
         end
       end
     end
@@ -42,9 +44,9 @@ describe CategoriesController, type: :controller do
       end
       it_behaves_like 'successful request', :show
       it 'sets category to the selected category' do
+        get :show, id: cat.id
         expect(Category).to have_received(:find).with(cat.id.to_s)
           .at_least(:once)
-        get :show, id: cat.id
       end
     end
     context 'user is not admin' do
