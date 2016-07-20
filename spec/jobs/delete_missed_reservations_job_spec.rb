@@ -16,14 +16,16 @@ describe DeleteMissedReservationsJob, type: :job do
 
   it "doesn't run when the res_exp_time parameter isn't set" do
     mock_app_config(res_exp_time: nil)
-    expect(described_class).not_to receive(:run)
+    allow(described_class).to receive(:run)
     described_class.perform_now
+    expect(described_class).not_to have_received(:run)
   end
 
   it 'collects the appropriate reservations' do
     mock_app_config(res_exp_time: 5)
-    expect(Reservation).to receive(:deletable_missed).and_return([])
+    allow(Reservation).to receive(:deletable_missed).and_return([])
     described_class.perform_now
+    expect(Reservation).to have_received(:deletable_missed)
   end
 
   describe '#run' do
@@ -40,9 +42,9 @@ describe DeleteMissedReservationsJob, type: :job do
       res = ReservationMock.new
       allow(Reservation).to receive(:deletable_missed).and_return([res])
       allow(Rails.logger).to receive(:info)
-      expect(Rails.logger).to receive(:info)
-        .with("Deleting reservation:\n #{res.inspect}").once
       described_class.perform_now
+      expect(Rails.logger).to have_received(:info)
+        .with("Deleting reservation:\n #{res.inspect}").once
     end
   end
 end

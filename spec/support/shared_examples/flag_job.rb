@@ -10,11 +10,13 @@ shared_examples_for 'flag job' do |attr, scope|
   it 'logs the update' do
     res = ReservationMock.new
     allow(Reservation).to receive(scope).and_return([res])
-    expect(Rails.logger).to receive(:info).at_least(:once)
+    allow(Rails.logger).to receive(:info)
     described_class.perform_now
+    expect(Rails.logger).to have_received(:info).at_least(:once)
   end
   it 'collects the appropriate reservations' do
-    expect(Reservation).to receive(scope).and_return([])
+    allow(Reservation).to receive(scope).and_return([])
     described_class.perform_now
+    expect(Reservation).to have_received(scope)
   end
 end
