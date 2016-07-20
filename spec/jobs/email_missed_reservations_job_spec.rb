@@ -1,13 +1,12 @@
 require 'spec_helper'
 
 describe EmailMissedReservationsJob, type: :job do
-  include ReservationHelper
   it_behaves_like 'email job',
                   { send_notifications_for_deleted_missed_reservations: true },
                   :missed_not_emailed
   it 'sets the missed_email_sent flag' do
     mock_app_config(send_notifications_for_deleted_missed_reservations: true)
-    res = mock_reservation
+    res = ReservationMock.new
     allow(Reservation).to receive(:missed_not_emailed).and_return([res])
     allow(UserMailer).to \
       receive_message_chain(:reservation_status_update, :deliver_now)

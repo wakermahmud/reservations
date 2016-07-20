@@ -1,12 +1,10 @@
 require 'spec_helper'
 
 shared_examples_for 'email job' do |ac_setting, scope|
-  include ReservationHelper
-
   it 'sends emails' do
     mock_app_config(ac_setting)
-    res = mock_reservation
-    stub_collection_methods([res], scope)
+    res = ReservationMock.new
+    allow(Reservation).to receive(scope).and_return([res])
     expect(UserMailer).to \
       receive_message_chain(:reservation_status_update, :deliver_now)
     described_class.perform_now
@@ -20,8 +18,8 @@ shared_examples_for 'email job' do |ac_setting, scope|
 
   it 'logs emails' do
     mock_app_config(ac_setting)
-    res = mock_reservation
-    stub_collection_methods([res], scope)
+    res = ReservationMock.new
+    allow(Reservation).to receive(scope).and_return([res])
     expect(Rails.logger).to receive(:info).at_least(:once)
     described_class.perform_now
   end

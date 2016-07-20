@@ -1,8 +1,6 @@
 require 'spec_helper'
 
 describe DeleteMissedReservationsJob, type: :job do
-  include ReservationHelper
-
   it 'deletes appropriate reservations' do
     mock_app_config(res_exp_time: 5)
     FactoryGirl.create(:missed_reservation,
@@ -31,16 +29,16 @@ describe DeleteMissedReservationsJob, type: :job do
   describe '#run' do
     it 'deletes reservations' do
       mock_app_config(res_exp_time: 5)
-      res = mock_reservation
-      stub_collection_methods([res], :deletable_missed)
+      res = ReservationMock.new
+      allow(Reservation).to receive(:deletable_missed).and_return([res])
       described_class.perform_now
       expect(res).to have_received(:destroy)
     end
 
     it 'logs deletions' do
       mock_app_config(res_exp_time: 5)
-      res = mock_reservation
-      stub_collection_methods([res], :deletable_missed)
+      res = ReservationMock.new
+      allow(Reservation).to receive(:deletable_missed).and_return([res])
       allow(Rails.logger).to receive(:info)
       expect(Rails.logger).to receive(:info)
         .with("Deleting reservation:\n #{res.inspect}").once

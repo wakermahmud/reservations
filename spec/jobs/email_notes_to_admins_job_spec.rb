@@ -1,7 +1,6 @@
 require 'spec_helper'
 
 describe EmailNotesToAdminsJob, type: :job do
-  include ReservationHelper
   def stub_scope_chain(res, *chain)
     final = chain.pop
     chain.each do |scope|
