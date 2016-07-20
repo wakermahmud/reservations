@@ -94,8 +94,10 @@ describe EquipmentItemsController, type: :controller do
       end
       it 'sets equipment_model when one is passed through params' do
         model = EquipmentModelMock.new(traits: [:findable])
-        expect(EquipmentItem).to receive(:new).with(equipment_model: model)
+        allow(EquipmentItem).to receive(:new).with(equipment_model: model)
         get :new, equipment_model_id: model.id
+        expect(EquipmentItem).to have_received(:new)
+          .with(equipment_model: model)
       end
     end
     context 'with normal user' do
