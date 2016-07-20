@@ -1,8 +1,8 @@
 class FlagMissedJob < ReservationJob
   private
 
-  def log_start
-    super(type: 'newly missed', task: 'flagging')
+  def type
+    'newly missed'
   end
 
   def new_missed

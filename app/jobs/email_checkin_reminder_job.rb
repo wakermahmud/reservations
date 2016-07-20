@@ -7,12 +7,8 @@ class EmailCheckinReminderJob < ReservationJob
     AppConfig.check :upcoming_checkin_email_active?
   end
 
-  def log_start
-    super(type: 'due today', task: TASK)
-  end
-
-  def log_disabled
-    super(task: 'send check-in reminder emails')
+  def type
+    'due today'
   end
 
   def run

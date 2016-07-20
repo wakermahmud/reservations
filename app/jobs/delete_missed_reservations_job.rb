@@ -1,16 +1,12 @@
 class DeleteMissedReservationsJob < ReservationJob
   private
 
+  def type
+    'old missed'
+  end
+
   def enabled
     !AppConfig.check(:res_exp_time, '').blank?
-  end
-
-  def log_start
-    super(type: 'old missed', task: 'deleting')
-  end
-
-  def log_disabled
-    super(task: 'delete old missed reservations')
   end
 
   def run

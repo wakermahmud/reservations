@@ -3,8 +3,8 @@ class DenyMissedRequestsJob < ReservationJob
 
   private
 
-  def log_start
-    super(type: 'missed requests', task: 'denying')
+  def type
+    'missed requests'
   end
 
   def missed_requests

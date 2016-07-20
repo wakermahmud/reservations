@@ -1,6 +1,4 @@
 module EmailJobHelper
-  TASK = 'sending emails'.freeze
-
   private
 
   def send_email(res)

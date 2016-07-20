@@ -1,8 +1,8 @@
 class FlagOverdueJob < ReservationJob
   private
 
-  def log_start
-    super(type: 'newly overdue', task: 'flagging')
+  def type
+    'newly overdue'
   end
 
   def new_overdue

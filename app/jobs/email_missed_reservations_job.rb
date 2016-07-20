@@ -7,12 +7,8 @@ class EmailMissedReservationsJob < ReservationJob
     AppConfig.check :send_notifications_for_deleted_missed_reservations
   end
 
-  def log_start
-    super(type: 'missed', task: TASK)
-  end
-
-  def log_disabled
-    super(task: 'send emails for missed reservations')
+  def type
+    'missed'
   end
 
   def run

@@ -7,11 +7,8 @@ class EmailOverdueReminderJob < ReservationJob
     AppConfig.check :overdue_checkin_email_active?
   end
 
-  def log_start
-    super(type: 'overdue', task: TASK)
-  end
-
-  def log_disabled
+  def type
+    'overdue'
   end
 
   def run

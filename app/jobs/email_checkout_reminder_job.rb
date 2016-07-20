@@ -7,12 +7,8 @@ class EmailCheckoutReminderJob < ReservationJob
     AppConfig.check :upcoming_checkout_email_active?
   end
 
-  def log_start
-    super(type: 'starting today', task: TASK)
-  end
-
-  def log_disabled
-    super(task: 'send reminder emails for reservations that start today')
+  def type
+    'starting today'
   end
 
   def run
