@@ -35,9 +35,13 @@ describe Reservation, type: :model do
       date_range = Time.zone.today..(Time.zone.today + 2.days)
       source = []
       date_range.each do |date|
-        expect(described_class).to receive(:number_for).with(source, date: date)
+        allow(described_class).to receive(:number_for).with(source, date: date)
       end
       described_class.number_for_date_range(source, date_range)
+      date_range.each do |date|
+        expect(described_class).to have_received(:number_for)
+          .with(source, date: date)
+      end
     end
   end
 
@@ -273,9 +277,11 @@ describe Reservation, type: :model do
       expect { res.flag(:request) }.not_to change { res.flags }
     end
     it "doesn't save the reservation" do
-      expect(res).not_to receive(:save)
-      expect(res).not_to receive(:save!)
+      allow(res).to receive(:save)
+      allow(res).to receive(:save!)
       res.flag(:request)
+      expect(res).not_to have_received(:save)
+      expect(res).not_to have_received(:save!)
     end
   end
 
@@ -293,10 +299,12 @@ describe Reservation, type: :model do
       expect { res.unflag(:request) }.not_to change { res.flags }
     end
     it "doesn't save the reservation" do
-      expect(res).not_to receive(:save)
-      expect(res).not_to receive(:save!)
+      allow(res).to receive(:save)
+      allow(res).to receive(:save!)
       res.flag(:request)
       res.unflag(:request)
+      expect(res).not_to have_received(:save)
+      expect(res).not_to have_received(:save!)
     end
   end
 
@@ -608,9 +616,11 @@ describe Reservation, type: :model do
         # also applies to the next two tests
         new_notes = ''
         procedures = {}
-        expect(res).to receive(:make_notes)
+        allow(res).to receive(:make_notes)
           .with('Checked in', new_notes, [], handler)
         res.checkin(handler, procedures, new_notes)
+        expect(res).to have_received(:make_notes)
+          .with('Checked in', new_notes, [], handler)
       end
       it 'returns the reservation' do
         expect(res.checkin(handler, {}, '')).to eq(res)
@@ -624,8 +634,10 @@ describe Reservation, type: :model do
         res = FactoryGirl.build_stubbed(:checked_out_reservation,
                                         equipment_model: model)
         procedures = { procedure.id.to_s => '1' }
-        expect(res).to receive(:make_notes).with('Checked in', '', [], handler)
+        allow(res).to receive(:make_notes).with('Checked in', '', [], handler)
         res.checkin(handler, procedures, '')
+        expect(res).to have_received(:make_notes)
+          .with('Checked in', '', [], handler)
       end
     end
     context 'with incomplete procedures' do
@@ -636,9 +648,11 @@ describe Reservation, type: :model do
         res = FactoryGirl.build_stubbed(:checked_out_reservation,
                                         equipment_model: model)
         incomplete = [procedure.step]
-        expect(res).to receive(:make_notes)
+        allow(res).to receive(:make_notes)
           .with('Checked in', '', incomplete, handler)
         res.checkin(handler, {}, '')
+        expect(res).to have_received(:make_notes)
+          .with('Checked in', '', incomplete, handler)
       end
     end
     context 'overdue' do
@@ -700,9 +714,11 @@ describe Reservation, type: :model do
         # also applies to the next two tests
         new_notes = ''
         procedures = {}
-        expect(res).to receive(:make_notes)
+        allow(res).to receive(:make_notes)
           .with('Checked out', new_notes, [], handler)
         res.checkout(item, handler, procedures, new_notes)
+        expect(res).to have_received(:make_notes)
+          .with('Checked out', new_notes, [], handler)
       end
       it 'returns the reservation' do
         expect(res.checkout(item, handler, {}, '')).to eq(res)
@@ -718,8 +734,10 @@ describe Reservation, type: :model do
         res = FactoryGirl.build_stubbed(:valid_reservation,
                                         equipment_model: model)
         procedures = { procedure.id.to_s => '1' }
-        expect(res).to receive(:make_notes).with('Checked out', '', [], handler)
+        allow(res).to receive(:make_notes).with('Checked out', '', [], handler)
         res.checkout(item, handler, procedures, '')
+        expect(res).to have_received(:make_notes)
+          .with('Checked out', '', [], handler)
       end
     end
     context 'with incomplete procedures' do
@@ -732,9 +750,11 @@ describe Reservation, type: :model do
         res = FactoryGirl.build_stubbed(:valid_reservation,
                                         equipment_model: model)
         incomplete = [procedure.step]
-        expect(res).to receive(:make_notes)
+        allow(res).to receive(:make_notes)
           .with('Checked out', '', incomplete, handler)
         res.checkout(item, handler, {}, '')
+        expect(res).to have_received(:make_notes)
+          .with('Checked out', '', incomplete, handler)
       end
     end
   end
