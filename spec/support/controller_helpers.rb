@@ -2,6 +2,7 @@ require Rails.root.join('spec/support/mockers/user.rb')
 
 module ControllerHelpers
   def mock_user_sign_in(user = UserMock.new(traits: [:findable]))
+    user.process_traits([:findable])
     pass_app_setup_check
     allow(request.env['warden']).to receive(:authenticate!).and_return(user)
     # necessary for permissions to work
