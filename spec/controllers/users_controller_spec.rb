@@ -3,11 +3,10 @@ require 'spec_helper'
 describe UsersController, type: :controller do
   before(:each) { mock_app_config }
 
-  before { mock_user_sign_in(UserMock.new(:admin)) }
-
   it_behaves_like 'calendarable', User
 
   describe 'GET index' do
+    before { mock_user_sign_in(UserMock.new(:admin)) }
     context 'basic function' do
       before { get :index }
       it_behaves_like 'successful request', :index
@@ -35,6 +34,7 @@ describe UsersController, type: :controller do
   end
 
   describe 'GET show' do
+    before { mock_user_sign_in(UserMock.new(:admin)) }
     let!(:user) do
       UserMock.new(traits: [:findable], reservations: spy('Array'))
     end
@@ -61,6 +61,7 @@ describe UsersController, type: :controller do
   end
 
   describe 'POST quick_new' do
+    before { mock_user_sign_in(UserMock.new(:admin)) }
     it 'gets the username from ldap' do
       allow(User).to receive(:search_ldap)
       post :quick_new, format: :js, possible_netid: 'csw3'
@@ -76,6 +77,7 @@ describe UsersController, type: :controller do
   end
 
   describe 'POST quick_create' do
+    before { mock_user_sign_in(UserMock.new(:admin)) }
     it 'creates a new user from the params' do
       user_params = { username: 'sky3' }
       allow(User).to receive(:new).and_return(UserMock.new)
@@ -131,37 +133,8 @@ describe UsersController, type: :controller do
       around(:example) do |example|
         env_wrapper('CAS_AUTH' => '1') { example.run }
       end
-      context 'with no current user' do
-        before do
-          allow_any_instance_of(described_class).to receive(:current_user)
-          .and_return(nil)
-          allow(User).to receive(:new)
-          .and_return(UserMock.new(:guest, traits: [:findable]))
-        end
-        context 'with a username (netid) in the session' do
-          let!(:user) { UserMock.new }
-          let!(:username) { 'sky3' }
-          before do
-            allow(User).to receive(:search_ldap).with(username)
-            .and_return(username)
-            allow(User).to receive(:new).with(username).and_return(user)
-            get :new, nil, new_username: username
-          end
-          it { is_expected.to set_flash[:notice] }
-          it 'creates a new user from ldap' do
-            expect(User).to have_received(:search_ldap).with(username)
-            expect(User).to have_received(:new).with(username)
-          end
-          it "sets the new user's username" do
-            expect(user).to have_received(:username=).with(username)
-          end
-        end
-        context 'no username' do
-          before { get :new }
-          it_behaves_like 'redirected request'
-        end
-      end
       context 'with current user' do
+        before { mock_user_sign_in(UserMock.new(:admin)) }
         it 'initializes a new user' do
           allow(User).to receive(:new)
           get :new
@@ -171,24 +144,16 @@ describe UsersController, type: :controller do
     end
     context 'without CAS' do
       it 'initializes a new user' do
+        mock_user_sign_in(UserMock.new(:admin))
         allow(User).to receive(:new)
         get :new
         expect(User).to have_received(:new).at_least(:once)
-      end
-      context 'with no current user' do
-        before do
-          allow_any_instance_of(described_class).to receive(:current_user)
-          .and_return(nil)
-          allow(User).to receive(:new)
-          .and_return(UserMock.new(:guest, traits: [:findable]))
-          get :new
-        end
-        it { is_expected.to set_flash[:notice] }
       end
     end
   end
 
   describe 'POST create' do
+    before { mock_user_sign_in(UserMock.new(:admin)) }
     it 'initializes a new user from the params' do
       user_params = { username: 'sky3' }
       allow(User).to receive(:new).and_return(UserMock.new)
@@ -213,36 +178,16 @@ describe UsersController, type: :controller do
       around(:example) do |example|
         env_wrapper('CAS_AUTH' => '1') { example.run }
       end
-      context 'with admin user' do
-        # currently this is the default should probably make this explicit
-        it 'sets the cas login from params' do
-          user = UserMock.new
-          user_params = { username: 'sky3' }
-          allow(User).to receive(:new).and_return(user)
-          post :create, user: user_params
-          expect(user).to have_received(:cas_login=).with('sky3')
-        end
-      end
-      context 'without admin user' do
-        before do
-          allow_any_instance_of(described_class).to receive(:current_user)
-          .and_return(nil)
-          allow(User).to receive(:new)
-          .and_return(UserMock.new(:guest, traits: [:findable]))
-          get :new
-        end
-        it 'sets the cas login from the session' do
-          # save to false to avoid sign in + redirect calls
-          user = UserMock.new(save: false)
-          user_params = { first_name: 'name' }
-          allow(User).to receive(:new).with(user_params).and_return(user)
-          post :create, {user: user_params}, new_username: 'sky3'
-          expect(user).to have_received(:cas_login=).with('sky3')
-          expect(user).to have_received(:username=).with(user.cas_login)
-        end
+      it 'sets the cas login from params' do
+        user = UserMock.new
+        user_params = { username: 'sky3' }
+        allow(User).to receive(:new).and_return(user)
+        post :create, user: user_params
+        expect(user).to have_received(:cas_login=).with('sky3')
       end
     end
     context 'without CAS' do
+      before { mock_user_sign_in(UserMock.new(:admin)) }
       it 'sets the username to the email' do
         user = UserMock.new(email: 'email')
         allow(User).to receive(:new).and_return(user)
@@ -251,6 +196,7 @@ describe UsersController, type: :controller do
       end
     end
     context 'successful save' do
+      before { mock_user_sign_in(UserMock.new(:admin)) }
       let!(:user) { FactoryGirl.build_stubbed(:user) }
       before do
         allow(User).to receive(:new).and_return(user)
@@ -261,6 +207,7 @@ describe UsersController, type: :controller do
       it { is_expected.to redirect_to(user) }
     end
     context 'unsuccessful save' do
+      before { mock_user_sign_in(UserMock.new(:admin)) }
       let!(:user) { UserMock.new(save: false) }
       before do
         allow(User).to receive(:new).and_return(user)
@@ -271,6 +218,7 @@ describe UsersController, type: :controller do
   end
 
   describe 'PUT ban' do
+    before { mock_user_sign_in(UserMock.new(:admin)) }
     before { request.env['HTTP_REFERER'] = 'where_i_came_from' }
     context 'guest user' do
       before do
@@ -299,6 +247,7 @@ describe UsersController, type: :controller do
   end
 
   describe 'PUT unban' do
+    before { mock_user_sign_in(UserMock.new(:admin)) }
     before { request.env['HTTP_REFERER'] = 'where_i_came_from' }
     context 'guest user' do
       before do
@@ -315,17 +264,6 @@ describe UsersController, type: :controller do
         expect(user).to have_received(:update_attributes)
         .with(hash_including(role: 'normal', view_mode: 'normal'))
       end
-    end
-  end
-  describe 'GET new when new user registration is disabled' do
-    before do
-      allow(@ac).to receive(:enable_new_users).and_return(false)
-      get :new
-    end
-
-    it { is_expected.to set_flash }
-    it 'redirects to homepage' do
-      expect(response).to redirect_to(root_url)
     end
   end
 end
