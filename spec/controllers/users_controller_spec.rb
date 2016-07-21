@@ -52,7 +52,7 @@ describe UsersController, type: :controller do
     context 'with banned user' do
       before do
         banned = UserMock.new(:banned, traits: [:findable],
-                              reservations: spy('Array'))
+                                       reservations: spy('Array'))
         get :show, id: banned.id
       end
       it { is_expected.to respond_with(:success) }
@@ -67,7 +67,7 @@ describe UsersController, type: :controller do
       post :quick_new, format: :js, possible_netid: 'csw3'
       expect(User).to have_received(:search_ldap)
     end
-    it 'attempts to make a new user from the ldap result' do 
+    it 'attempts to make a new user from the ldap result' do
       netid = 'sky3'
       allow(User).to receive(:search_ldap).and_return(netid)
       allow(User).to receive(:new)
@@ -241,7 +241,7 @@ describe UsersController, type: :controller do
       it_behaves_like 'redirected request'
       it 'should make the user banned' do
         expect(user).to have_received(:update_attributes)
-        .with(hash_including(role: 'banned', view_mode: 'banned'))
+          .with(hash_including(role: 'banned', view_mode: 'banned'))
       end
     end
   end
@@ -262,7 +262,7 @@ describe UsersController, type: :controller do
       it_behaves_like 'redirected request'
       it 'should make the user banned' do
         expect(user).to have_received(:update_attributes)
-        .with(hash_including(role: 'normal', view_mode: 'normal'))
+          .with(hash_including(role: 'normal', view_mode: 'normal'))
       end
     end
   end
