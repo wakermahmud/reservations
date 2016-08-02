@@ -3,16 +3,21 @@ JS = /\.jsx?$/
 RUBY_PASS = %w(no\ offenses files\ found).freeze
 JS_PASS = %w(true files\ found).freeze
 
+EXISTING_FILES = /^[^D].*/
+FILE = /^[A-Z]\t(.*)$/
+
 desc 'Style checks files that differ from master'
 task :check_style do
   puts diff_output
+  puts "\nRunning rubocop..."
   puts check_ruby
+  puts "\nRunning eslint..."
   puts check_js
   exit evaluate
 end
 
 def diff_output
-  "Files found in the diff\n#{diff}\n"
+  "Files found in the diff\n#{diff.join("\n")}\n"
 end
 
 def check_ruby
@@ -38,7 +43,7 @@ def passed?
 end
 
 def rubocop(files)
-  "rubocop -D #{files}"
+  "rubocop -D --force-exclusion #{files}"
 end
 
 def eslint(files)
@@ -46,9 +51,15 @@ def eslint(files)
 end
 
 def diff
-  @diff ||= `git diff master --name-only`
+  @diff ||= process_diff
+end
+
+def process_diff
+  all = `git diff master --name-status`
+  existing_files = all.split("\n").grep(EXISTING_FILES)
+  existing_files.map { |f| FILE.match(f)[1] }
 end
 
 def files_that_match(regex)
-  diff.split("\n").grep(regex).join(' ')
+  diff.grep(regex).join(' ')
 end
