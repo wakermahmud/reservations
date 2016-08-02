@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class DailyTasksJob < ActiveJob::Base
   queue_as :default
 

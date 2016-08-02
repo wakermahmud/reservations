@@ -1,6 +1,7 @@
+# frozen_string_literal: true
 class ReservationJob < ActiveJob::Base
   queue_as :default
-  UNDEFINED_MESSAGE = 'JOB NOT DEFINED'.freeze
+  UNDEFINED_MESSAGE = 'JOB NOT DEFINED'
 
   def perform
     if enabled

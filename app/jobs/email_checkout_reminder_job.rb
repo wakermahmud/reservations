@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class EmailCheckoutReminderJob < ReservationJob
   include EmailJobHelper
 

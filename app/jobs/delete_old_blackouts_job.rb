@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class DeleteOldBlackoutsJob < ActiveJob::Base
   queue_as :default
 
