@@ -72,7 +72,7 @@ class Reservation < ActiveRecord::Base
 
   # overdue / request scopes
   scope :overdue, ->() { where(overdue: true).checked_out }
-  scope :not_overdue, ->() { where(overdue: false) }
+  scope :not_overdue, ->() { where(overdue: false).checked_out }
   scope :returned_on_time, ->() { where(overdue: false).returned }
   scope :returned_overdue, ->() { where(overdue: true).returned }
   scope :approved_requests, ->() { flagged(:request).finalized }
