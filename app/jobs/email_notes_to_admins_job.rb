@@ -7,8 +7,8 @@ class EmailNotesToAdminsJob < ActiveJob::Base
     unless no_notes
       Rails.logger.info 'Sending a reminder email...'
       run
-      clean
     end
+    clean
     Rails.logger.info 'Done!'
   end
 

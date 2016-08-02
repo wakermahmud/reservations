@@ -9,31 +9,35 @@ describe EmailNotesToAdminsJob, type: :job do
     allow(Reservation).to receive(final).and_return(res)
   end
 
-  shared_examples 'admin email' do |*scopes|
+  shared_examples 'admin email' do |scope|
     it 'sends emails' do
       res = spy('Array', empty?: false)
-      stub_scope_chain(res, *scopes)
+      allow(Reservation).to receive(scope).and_return(res)
+      allow(res).to receive(:notes_unsent).and_return(res)
       allow(res).to receive(:update_all)
-        .with(notes_unsent: false).and_return([])
       expect(AdminMailer).to \
         receive_message_chain(:notes_reservation_notification, :deliver_now)
       described_class.perform_now
     end
     it 'gets the appropriate reservations' do
-      expect(Reservation).to receive_message_chain(*scopes).and_return([])
+      res = spy('Array', empty?: true)
+      allow(Reservation).to receive(scope).and_return(res)
+      allow(res).to receive(:notes_unsent).and_return(res)
       described_class.perform_now
+      expect(Reservation).to have_received(scope)
+      expect(res).to have_received(:notes_unsent)
     end
     it 'unsets the notes_unsent flag' do
       res = spy('Array', empty?: false)
-      stub_scope_chain(res, *scopes)
+      allow(Reservation).to receive(scope).and_return(res)
+      allow(res).to receive(:notes_unsent).and_return(res)
       allow(AdminMailer).to \
         receive_message_chain(:notes_reservation_notification, :deliver_now)
-      expect(res).to receive(:update_all)
-        .with(notes_unsent: false).at_least(:once)
       described_class.perform_now
+      expect(res).to have_received(:update_all).with(notes_unsent: false)
     end
   end
 
-  it_behaves_like 'admin email', :checked_out, :notes_unsent
-  it_behaves_like 'admin email', :returned, :notes_unsent
+  it_behaves_like 'admin email', :checked_out
+  it_behaves_like 'admin email', :returned
 end
