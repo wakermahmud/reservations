@@ -112,21 +112,22 @@ describe Reservation, type: :model do
   end
 
   describe '.expire!' do
-    let!(:res) { FactoryGirl.create(:request) }
-
+    let!(:res) do
+      FactoryGirl.build_stubbed(:request).tap do |r|
+        allow(r).to receive(:save)
+      end
+    end
     it 'updates the status' do
       expect { res.expire! }.to change { res.status }
         .from('requested').to('denied')
     end
-
     it 'flags as expired' do
       expect { res.expire! }.to change { res.flagged?(:expired) }
         .from(false).to(true)
     end
-
     it 'saves the result' do
-      expect(res).to receive(:save)
       res.expire!
+      expect(res).to have_received(:save)
     end
   end
 
