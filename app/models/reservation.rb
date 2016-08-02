@@ -72,7 +72,7 @@ class Reservation < ActiveRecord::Base
 
   # overdue / request scopes
   scope :overdue, ->() { where(overdue: true).checked_out }
-  scope :not_overdue, ->() { where(overdue: false).checked_out }
+  scope :not_overdue, ->() { where(overdue: false) }
   scope :returned_on_time, ->() { where(overdue: false).returned }
   scope :returned_overdue, ->() { where(overdue: true).returned }
   scope :approved_requests, ->() { flagged(:request).finalized }
@@ -106,7 +106,7 @@ class Reservation < ActiveRecord::Base
   # for status modifying jobs
   scope :missed_not_emailed, ->() { missed.not_flagged(:missed_email_sent) }
   scope :newly_missed, ->() { reserved.past_date(:start_date) }
-  scope :newly_overdue, ->() { not_overdue.past_date(:due_date) }
+  scope :newly_overdue, ->() { not_overdue.checked_out.past_date(:due_date) }
 
   def self.deletable_missed
     return Reservation.none if AppConfig.check(:res_exp_time, '').blank?
