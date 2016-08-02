@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 RUBY = /\.(rb)|(rake)$/
 JS = /\.jsx?$/
 RUBY_PASS = %w(no\ offenses files\ found).freeze
