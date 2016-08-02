@@ -2,7 +2,7 @@
 
 RUBY = /\.(rb)|(rake)$/
 JS = /\.jsx?$/
-RUBY_PASS = %w(no\ offenses files\ found).freeze
+RUBY_PASS = %w(true no\ offenses files\ found).freeze
 JS_PASS = %w(true files\ found).freeze
 
 EXISTING_FILES = /^[^D].*/
@@ -19,7 +19,7 @@ task :check_style do
 end
 
 def diff_output
-  "Files found in the diff\n#{diff.join("\n")}\n"
+  "Files found in the diff:\n#{diff.join("\n")}\n"
 end
 
 def check(type:, regex:, checker:)
