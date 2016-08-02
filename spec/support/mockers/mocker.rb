@@ -3,7 +3,7 @@ require 'rspec/mocks/standalone'
 class Mocker < RSpec::Mocks::InstanceVerifyingDouble
   include RSpec::Mocks
 
-  FIND_METHODS = [:find, :find_by_id]
+  FIND_METHODS = [:find, :find_by_id].freeze
 
   def initialize(traits: [], **attrs)
     # from RSpec::Mocks::ExampleMethods
