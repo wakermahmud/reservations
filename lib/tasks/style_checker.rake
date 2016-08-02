@@ -20,16 +20,18 @@ def diff_output
   "Files found in the diff\n#{diff.join("\n")}\n"
 end
 
+def check(type:, regex:, checker:)
+  files = files_that_match regex
+  return "No #{type} files found!" if files.empty?
+  "#{send(checker, files)}\n#{system send(checker, files)}\n"
+end
+
 def check_ruby
-  files = files_that_match RUBY
-  return 'No ruby files found!' if files.empty?
-  @ruby_results ||= "#{rubocop(files)}\n#{system rubocop(files)}\n"
+  @ruby_results ||= check(type: 'ruby', regex: RUBY, checker: :rubocop)
 end
 
 def check_js
-  files = files_that_match JS
-  return 'No javascript files found!' if files.empty?
-  @js_results ||= "#{eslint(files)}\n#{system eslint(files)}\n"
+  @js_results ||= check(type: 'javascript', regex: JS, checker: :eslint)
 end
 
 def evaluate
